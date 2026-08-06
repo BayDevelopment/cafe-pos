@@ -108,7 +108,7 @@ model Employee {
 
 model Category {
   id       Int       @id @default(autoincrement())
-  name     String
+  name     String    @unique
   products Product[]
 }
 
@@ -117,6 +117,7 @@ model Product {
   sku        String?     @unique
   name       String
   price      Decimal     @db.Decimal(10, 2)
+  costPrice  Decimal?    @db.Decimal(10, 2)
   stock      Int         @default(0)
   image      String?
   isActive   Boolean     @default(true)
@@ -135,6 +136,7 @@ model Order {
   id            Int           @id @default(autoincrement())
   totalAmount   Decimal       @db.Decimal(10, 2)
   discount      Decimal       @default(0) @db.Decimal(10, 2)
+  note          String?
   paymentMethod PaymentMethod @default(CASH)
   status        OrderStatus   @default(PAID)
   cashierId     String
@@ -145,6 +147,8 @@ model Order {
 
   @@index([createdAt])
   @@index([cashierId])
+  @@index([status])
+  @@index([status, createdAt])
 }
 
 model OrderItem {

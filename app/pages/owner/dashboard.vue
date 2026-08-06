@@ -10,7 +10,9 @@
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
                 <div>
                     <div class="flex items-center gap-2 mb-2">
-                        <span class="mono label-xs px-2 py-0.5 rounded bg-[#9b3a2e] text-[#faf6ee]">OWNER ACCESS</span>
+                        <span class="mono label-xs px-2 py-0.5 rounded bg-[#9b3a2e] text-[#faf6ee]">
+                            OWNER ACCESS {{ user?.id ? `(ID: ${user.id})` : '' }}
+                        </span>
                         <span class="mono label-xs text-[#8A7A68]">{{ today }}</span>
                     </div>
                     <h1 class="display text-2xl md:text-3xl text-[#2b1b12] tracking-tight font-bold">Dashboard Pemilik
@@ -19,9 +21,14 @@
                         secara keseluruhan.</p>
                 </div>
 
-                <NuxtLink to="/owner/reports" class="btn-stamp mono inline-flex items-center gap-2 no-underline">
-                    <span>📊</span> LIHAT LAPORAN OMZET
-                </NuxtLink>
+                <div class="flex items-center gap-3">
+                    <NuxtLink to="/owner/reports" class="btn-stamp mono inline-flex items-center gap-2 no-underline">
+                        <span>📊</span> LIHAT LAPORAN OMZET
+                    </NuxtLink>
+                    <button @click="handleLogout" class="btn-logout mono inline-flex items-center gap-2">
+                        <span>🚪</span> KELUAR
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -91,6 +98,33 @@
 </template>
 
 <script setup>
+// Daftarkan route middleware untuk memproteksi halaman ini
+definePageMeta({
+    middleware: [
+        async (to, from) => {
+            const { user, fetchUser } = useAuth()
+
+            // Jika state user belum ada di frontend, ambil dulu dari API /api/auth/me
+            if (!user.value) {
+                await fetchUser()
+            }
+
+            // Jika belum login, tendang ke halaman login owner
+            if (!user.value) {
+                return navigateTo('/owner/login')
+            }
+
+            // Validasi ketat role: Jika bukan PEMILIK (misal kasir nyasar kesini), alihkan ke dashboard kasir
+            if (user.value.role !== 'PEMILIK') {
+                return navigateTo('/kasir/dashboard')
+            }
+        }
+    ]
+})
+
+// Gunakan composable useAuth untuk ambil data user & fungsi logout
+const { user, logout } = useAuth()
+
 useHead({
     link: [
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -101,6 +135,10 @@ useHead({
 const today = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
     .format(new Date())
     .toUpperCase()
+
+const handleLogout = async () => {
+    await logout()
+}
 </script>
 
 <style scoped>
@@ -148,6 +186,28 @@ const today = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short',
     background: #b8763c;
     border-color: #b8763c;
     transform: rotate(-0.6deg) scale(1.01);
+}
+
+.btn-logout {
+    background: transparent;
+    color: #9b3a2e;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    border: 1.5px solid rgba(155, 58, 46, 0.3);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-logout:hover {
+    background: rgba(155, 58, 46, 0.08);
+    border-color: #9b3a2e;
 }
 
 .quick-link:hover {

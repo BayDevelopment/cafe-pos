@@ -87,12 +87,18 @@
 </template>
 
 <script setup>
-useHead({
-  link: [
-    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap' }
-  ]
+definePageMeta({
+    middleware: ['auth']
 })
+
+useHead({
+    link: [
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap' }
+    ]
+})
+
+const { setUser } = useAuth()
 
 const form = ref({ email: '', password: '' })
 const isLoading = ref(false)
