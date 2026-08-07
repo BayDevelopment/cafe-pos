@@ -121,6 +121,11 @@
 </template>
 
 <script setup>
+definePageMeta({
+    middleware: ['auth'],
+    layout: false
+})
+
 useHead({
     link: [
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },

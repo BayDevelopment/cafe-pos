@@ -10,10 +10,8 @@
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
                 <div>
                     <div class="flex items-center gap-2 mb-2">
-                        <span class="mono label-xs px-2 py-0.5 rounded bg-[#2b1b12] text-[#faf6ee]">
-                            KASIR TERMINAL-01 {{ user?.id ? `(ID: ${user.id})` : '' }}
-                        </span>
                         <span class="mono label-xs text-[#8A7A68]">{{ today }}</span>
+                        <span v-if="pending" class="mono text-[10px] text-[#b8763c] animate-pulse">● Memperbarui data...</span>
                     </div>
                     <h1 class="display text-2xl md:text-3xl text-[#2b1b12] tracking-tight font-bold">Dashboard Kasir
                     </h1>
@@ -22,8 +20,8 @@
                 </div>
 
                 <div class="flex items-center gap-3">
-                    <NuxtLink to="/kasir/product" class="btn-stamp mono inline-flex items-center gap-2 no-underline">
-                        <span>⚡</span> BUKA MESIN POS / MENU
+                    <NuxtLink to="/kasir/pos" class="btn-stamp mono inline-flex items-center gap-2 no-underline">
+                        <span>⚡</span> BUKA MESIN POS
                     </NuxtLink>
                     <button @click="handleLogout" class="btn-logout mono inline-flex items-center gap-2">
                         <span>🚪</span> KELUAR
@@ -42,8 +40,10 @@
                     <span class="stat-icon">🧾</span>
                 </div>
                 <div class="flex items-baseline gap-2">
-                    <h2 class="display text-3xl text-[#2b1b12] font-bold">{{ totalPesananHariIni }}</h2>
-                    <span class="mono text-xs text-[#2f7a46] font-semibold">+{{ pesananGrowth }}%</span>
+                    <h2 class="display text-3xl text-[#2b1b12] font-bold">{{ stats.totalPesananHariIni }}</h2>
+                    <span class="mono text-xs text-[#2f7a46] font-semibold">
+                        {{ stats.pesananGrowth >= 0 ? '+' : '' }}{{ stats.pesananGrowth }}%
+                    </span>
                 </div>
                 <p class="mono text-[0.7rem] text-[#8A7A68] mt-1">Dibanding kemarin</p>
             </div>
@@ -55,7 +55,7 @@
                     <span class="stat-icon">☕</span>
                 </div>
                 <div class="flex items-baseline gap-2">
-                    <h2 class="display text-3xl text-[#2b1b12] font-bold">{{ totalProduk }}</h2>
+                    <h2 class="display text-3xl text-[#2b1b12] font-bold">{{ stats.totalProduk }}</h2>
                     <span class="mono text-xs text-[#8A7A68] font-semibold">item</span>
                 </div>
                 <p class="mono text-[0.7rem] text-[#8A7A68] mt-1">Aktif di katalog menu</p>
@@ -68,7 +68,7 @@
                     <span class="stat-icon">👥</span>
                 </div>
                 <div class="flex items-baseline gap-2">
-                    <h2 class="display text-3xl text-[#2b1b12] font-bold">{{ totalKaryawan }}</h2>
+                    <h2 class="display text-3xl text-[#2b1b12] font-bold">{{ stats.totalKaryawan }}</h2>
                     <span class="mono text-xs text-[#8A7A68] font-semibold">orang</span>
                 </div>
                 <p class="mono text-[0.7rem] text-[#8A7A68] mt-1">Terdaftar & aktif shift</p>
@@ -83,7 +83,7 @@
                     <h3 class="display text-lg text-[#2b1b12] font-bold flex items-center gap-2">
                         <span>📈</span> Tren Pesanan 7 Hari Terakhir
                     </h3>
-                    <p class="mono text-xs text-[#8A7A68] mt-1">Jumlah transaksi tercatat per hari</p>
+                    <p class="mono text-xs text-[#8A7A68] mt-1">Jumlah transaksi tercatat per hari secara real-time</p>
                 </div>
                 <div class="text-right">
                     <p class="mono label-xs text-[#8A7A68]">RATA-RATA / HARI</p>
@@ -91,7 +91,7 @@
                 </div>
             </div>
 
-            <!-- Bar chart custom (SVG, tanpa dependency tambahan) -->
+            <!-- Bar chart custom (SVG) -->
             <div class="chart-wrap">
                 <svg :viewBox="`0 0 ${chartWidth} ${chartHeight}`" class="w-full h-56" preserveAspectRatio="none">
                     <!-- garis bantu horizontal -->
@@ -100,7 +100,7 @@
                         stroke="#2b1b12" stroke-opacity="0.06" stroke-width="1" />
 
                     <!-- batang -->
-                    <g v-for="(item, i) in weeklyData" :key="item.day">
+                    <g v-for="(item, i) in stats.weeklyData" :key="item.day">
                         <rect
                             :x="i * barSlot + barSlot * 0.22"
                             :y="(chartHeight - 24) - barHeight(item.total)"
@@ -135,7 +135,7 @@
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                <NuxtLink to="/kasir/product"
+                <NuxtLink to="/kasir/produk"
                     class="quick-link p-5 rounded-lg border border-[#2b1b12]/10 bg-white/40 hover:bg-[#faf6ee] transition block group">
                     <div class="flex items-center justify-between mb-2">
                         <span class="mono label-xs text-[#b8763c]">MODUL 01</span>
@@ -163,13 +163,29 @@
 </template>
 
 <script setup lang="ts">
-// Menggunakan middleware global auth.ts yang sudah Anda buat
 definePageMeta({
     middleware: ['auth']
 })
 
-// Gunakan composable useAuth untuk ambil data user & fungsi logout
-const { user, logout } = useAuth()
+const { logout } = useAuth()
+
+// Menggunakan composable dashboard dengan auto-polling setiap 15 detik (15000 ms)
+const { stats, pending, fetchDashboardData, startPolling, stopPolling } = useDashboard(15000)
+
+// Ambil data pertama kali saat halaman dirender di client/SSR
+await useAsyncData('dashboard-init', async () => {
+  await fetchDashboardData()
+  return true
+})
+
+// Lifecycle hooks untuk menjalankan & membersihkan polling real-time
+onMounted(() => {
+  startPolling()
+})
+
+onUnmounted(() => {
+  stopPolling()
+})
 
 useHead({
     link: [
@@ -182,47 +198,30 @@ const today = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short',
     .format(new Date())
     .toUpperCase()
 
-// --- Statistik ringkasan ---
-// TODO: ganti dengan data asli dari API/composable (mis. useDashboard(), useProduk(), useKaryawan())
-const totalPesananHariIni = ref(14)
-const pesananGrowth = ref(8)
-const totalProduk = ref(48)
-const totalKaryawan = ref(6)
-
-// --- Data grafik 7 hari terakhir ---
-// TODO: ganti dengan data asli dari API (mis. GET /api/laporan/pesanan-mingguan)
-const weeklyData = ref([
-    { day: 'Sen', total: 9 },
-    { day: 'Sel', total: 12 },
-    { day: 'Rab', total: 7 },
-    { day: 'Kam', total: 15 },
-    { day: 'Jum', total: 18 },
-    { day: 'Sab', total: 21 },
-    { day: 'Min', total: 14 },
-])
-
 const today3 = computed(() => {
     const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
     return days[new Date().getDay()]
 })
 
 const rataRataPesanan = computed(() => {
-    const sum = weeklyData.value.reduce((acc, d) => acc + d.total, 0)
-    return Math.round(sum / weeklyData.value.length)
+    if (!stats.value.weeklyData || stats.value.weeklyData.length === 0) return 0
+    const sum = stats.value.weeklyData.reduce((acc, d) => acc + d.total, 0)
+    return Math.round(sum / stats.value.weeklyData.length)
 })
 
-// --- Ukuran & skala chart (SVG viewBox statis, otomatis scale via CSS) ---
+// --- Ukuran & skala chart SVG ---
 const chartWidth = 700
 const chartHeight = 240
-const barSlot = computed(() => chartWidth / weeklyData.value.length)
-const maxTotal = computed(() => Math.max(...weeklyData.value.map(d => d.total), 1))
+const barSlot = computed(() => chartWidth / (stats.value.weeklyData?.length || 7))
+const maxTotal = computed(() => Math.max(...(stats.value.weeklyData?.map(d => d.total) || [1]), 1))
 
 function barHeight(total: number) {
-    const maxBarHeight = chartHeight - 24 - 28 // sisakan ruang untuk label atas & bawah
+    const maxBarHeight = chartHeight - 24 - 28
     return (total / maxTotal.value) * maxBarHeight
 }
 
 const handleLogout = async () => {
+    stopPolling()
     await logout()
 }
 </script>

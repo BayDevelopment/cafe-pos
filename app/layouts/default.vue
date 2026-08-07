@@ -92,9 +92,9 @@
                     <slot />
                 </div>
 
-                <!-- FOOTER: Mengikuti scroll di bagian paling bawah konten -->
+                <!-- FOOTER: Atas-bawah di Mobile & Tablet, Menyamping di Desktop -->
                 <footer
-                    class="flex-shrink-0 border-t border-[#2b1b12]/10 bg-[#faf6ee] px-4 md:px-8 py-3 flex flex-col sm:flex-row items-center justify-between gap-1 text-xs font-mono text-[#8A7A68]">
+                    class="flex-shrink-0 border-t border-[#2b1b12]/10 bg-[#faf6ee] px-4 md:px-8 py-4 flex flex-col md:flex-row items-center justify-between gap-2 text-xs font-mono text-[#8A7A68] text-center md:text-left">
                     <span>© {{ currentYear }} Kedai Kopi POS. Seluruh hak cipta dilindungi.</span>
                     <span>v1.0.0 · Dibuat dengan ☕ di Indonesia</span>
                 </footer>
@@ -118,7 +118,7 @@ onMounted(async () => {
     if (!user.value) {
         await fetchUser()
     }
-    
+
     // Debugging: Buka Console Browser (F12) untuk melihat struktur asli data user
     console.log('Data User di Topbar:', user.value)
 
