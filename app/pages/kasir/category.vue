@@ -1,21 +1,21 @@
 <!-- app/pages/kasir/kategori.vue -->
 <template>
-  <div class="p-4 md:p-10 max-w-6xl mx-auto space-y-6 md:space-y-8 font-sans">
+  <div class="p-4 md:p-10 max-w-6xl mx-auto space-y-6 md:space-y-8 font-poppins">
 
     <!-- HEADER HALAMAN -->
     <header class="ticket-card p-5 md:p-6 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div>
         <div class="flex items-center gap-2 mb-1">
-          <span class="mono label-xs px-2 py-0.5 rounded-md bg-[#2b1b12] text-[#faf6ee]">MANAJEMEN</span>
-          <span class="mono label-xs text-[#8A7A68]">DATA KATEGORI</span>
+          <span class="label-xs px-2 py-0.5 rounded-md bg-[#2b1b12] text-[#faf6ee] font-semibold">MANAJEMEN</span>
+          <span class="label-xs text-[#8A7A68] font-semibold">DATA KATEGORI</span>
         </div>
-        <h1 class="display text-xl md:text-2xl text-[#2b1b12] font-bold">Daftar Kategori</h1>
-        <p class="mono text-xs text-[#8A7A68] mt-0.5">Kelola pengelompokan menu untuk memudahkan pencarian produk.</p>
+        <h1 class="text-xl md:text-2xl text-[#2b1b12] font-bold">Daftar Kategori</h1>
+        <p class="text-xs text-[#8A7A68] mt-0.5">Kelola pengelompokan menu untuk memudahkan pencarian produk.</p>
       </div>
 
       <button 
         type="button"
-        class="btn-stamp mono px-4 py-2.5 text-xs w-full md:w-auto rounded-lg"
+        class="btn-stamp px-4 py-2.5 text-xs w-full md:w-auto rounded-lg font-semibold"
         @click="openCreateForm"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -39,15 +39,15 @@
           v-model="searchQuery"
           type="text"
           placeholder="Cari nama kategori..."
-          class="field mono text-xs pl-9 pr-3 py-2.5 bg-[#f4eee3] rounded-lg border border-[#2b1b12]/20 w-full focus:outline-none focus:border-[#b8763c] transition"
+          class="field text-xs pl-9 pr-3 py-2.5 bg-[#f4eee3] rounded-lg border border-[#2b1b12]/20 w-full focus:outline-none focus:border-[#b8763c] transition"
         />
       </div>
 
-      <div class="flex items-center gap-2 text-xs mono text-[#8A7A68] w-full md:w-auto justify-end">
+      <div class="flex items-center gap-2 text-xs text-[#8A7A68] w-full md:w-auto justify-end font-medium">
         <span>Tampilkan:</span>
         <select 
           v-model="limit" 
-          class="bg-[#f4eee3] border border-[#2b1b12]/20 rounded-lg p-2 focus:outline-none text-xs font-semibold"
+          class="bg-[#f4eee3] border border-[#2b1b12]/20 rounded-lg p-2 focus:outline-none text-xs font-semibold text-[#2b1b12]"
         >
           <option :value="5">5</option>
           <option :value="10">10</option>
@@ -58,32 +58,46 @@
       </div>
     </div>
 
-    <!-- LOADING STATE -->
-    <div v-if="pending" class="ticket-card p-12 rounded-xl text-center mono text-xs text-[#8A7A68]">
-      MEMUAT DATA KATEGORI...
+    <!-- LOADING STATE / SKELETON -->
+    <div v-if="pending" class="ticket-card p-6 rounded-xl space-y-4">
+      <div class="flex items-center justify-between pb-4 border-b border-[#2b1b12]/10">
+        <div class="skeleton h-5 w-32 rounded"></div>
+        <div class="skeleton h-5 w-24 rounded"></div>
+        <div class="skeleton h-5 w-20 rounded"></div>
+      </div>
+      <div v-for="n in 5" :key="n" class="flex items-center justify-between py-3">
+        <div class="space-y-2">
+          <div class="skeleton h-4 w-40 rounded"></div>
+        </div>
+        <div class="skeleton h-6 w-20 rounded-md"></div>
+        <div class="flex gap-2">
+          <div class="skeleton h-8 w-8 rounded-lg"></div>
+          <div class="skeleton h-8 w-8 rounded-lg"></div>
+        </div>
+      </div>
     </div>
 
     <!-- ERROR STATE -->
     <div v-else-if="fetchError" class="ticket-card p-12 rounded-xl text-center space-y-3">
-      <p class="mono text-xs text-[#9b3a2e]">Gagal memuat data kategori. Periksa koneksi atau coba lagi.</p>
+      <p class="text-xs text-[#9b3a2e] font-medium">Gagal memuat data kategori. Periksa koneksi atau coba lagi.</p>
       <button 
         type="button" 
-        class="btn-stamp mono inline-flex px-4 py-2 text-xs rounded-lg"
+        class="btn-stamp inline-flex px-4 py-2 text-xs rounded-lg font-semibold"
         @click="refreshCategories"
       >
         COBA LAGI
       </button>
     </div>
 
-    <!-- TABEL KATEGORI (CARD STYLE WITH ROUNDED CORNERS) -->
+    <!-- TABEL KATEGORI -->
     <main v-else class="ticket-card rounded-xl overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full text-sm text-left min-w-[480px]">
           <thead>
             <tr class="border-b border-[#2b1b12]/10 bg-[#f4eee3]/80">
-              <th scope="col" class="mono label-xs text-[#8A7A68] px-6 py-4">Nama Kategori</th>
-              <th scope="col" class="mono label-xs text-[#8A7A68] px-6 py-4">Jumlah Produk</th>
-              <th scope="col" class="mono label-xs text-center text-[#8A7A68] px-6 py-4">Aksi</th>
+              <th scope="col" class="label-xs text-[#8A7A68] px-6 py-4 font-semibold">Nama Kategori</th>
+              <th scope="col" class="label-xs text-[#8A7A68] px-6 py-4 font-semibold">Jumlah Produk</th>
+              <th scope="col" class="label-xs text-center text-[#8A7A68] px-6 py-4 font-semibold">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-[#2b1b12]/5">
@@ -92,11 +106,11 @@
               :key="category.id"
               class="hover:bg-[#f4eee3]/60 transition-colors group"
             >
-              <td class="px-6 py-4 font-bold text-[#2b1b12] display text-base">
+              <td class="px-6 py-4 font-bold text-[#2b1b12] text-base">
                 {{ category.name }}
               </td>
               <td class="px-6 py-4">
-                <span class="mono label-xs px-2.5 py-1 rounded-md bg-[#b8763c]/10 text-[#b8763c] font-semibold">
+                <span class="label-xs px-2.5 py-1 rounded-md bg-[#b8763c]/10 text-[#b8763c] font-semibold">
                   {{ getProductCount(category) }} produk
                 </span>
               </td>
@@ -136,7 +150,7 @@
         </table>
       </div>
 
-      <div v-if="categories.length === 0" class="p-12 text-center mono text-xs text-[#8A7A68]">
+      <div v-if="categories.length === 0" class="p-12 text-center text-xs text-[#8A7A68] font-medium">
         <template v-if="searchQuery">
           Tidak ditemukan kategori dengan kata kunci "{{ searchQuery }}".
         </template>
@@ -146,7 +160,7 @@
       </div>
 
       <!-- PAGINATION CONTROL -->
-      <footer v-if="pagination.totalPages > 1" class="p-4 bg-[#f4eee3]/50 border-t border-[#2b1b12]/10 flex flex-col sm:flex-row items-center justify-between gap-3 mono text-xs">
+      <footer v-if="pagination.totalPages > 1" class="p-4 bg-[#f4eee3]/50 border-t border-[#2b1b12]/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-medium">
         <span class="text-[#8A7A68]">
           Menampilkan {{ (currentPage - 1) * limit + 1 }} - {{ Math.min(currentPage * limit, pagination.total) }} dari {{ pagination.total }} data
         </span>
@@ -183,41 +197,41 @@
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       @click.self="closeForm"
     >
-      <div class="ticket-card rounded-xl w-full max-w-md p-6 space-y-5">
+      <div class="ticket-card rounded-xl w-full max-w-md p-6 space-y-5 animate-scale-in">
         <div>
-          <h2 class="display text-lg text-[#2b1b12] font-bold">
+          <h2 class="text-lg text-[#2b1b12] font-bold">
             {{ editingCategory ? 'Edit Kategori' : 'Tambah Kategori Baru' }}
           </h2>
-          <p class="mono text-xs text-[#8A7A68] mt-0.5">Isi nama kategori dengan jelas dan singkat.</p>
+          <p class="text-xs text-[#8A7A68] mt-0.5">Isi nama kategori dengan jelas dan singkat.</p>
         </div>
 
         <form class="space-y-4" @submit.prevent="submitForm">
           <div>
-            <label for="category-name" class="mono label-xs block text-[#8A7A68] mb-1">Nama Kategori *</label>
+            <label for="category-name" class="label-xs block text-[#8A7A68] mb-1 font-semibold">Nama Kategori *</label>
             <input 
               id="category-name"
               v-model.trim="form.name" 
               type="text" 
               required 
               placeholder="Contoh: Minuman Kopi"
-              class="field mono text-sm p-2.5 bg-[#f4eee3] rounded-lg border border-[#2b1b12]/20 w-full focus:outline-none focus:border-[#b8763c]" 
+              class="field text-sm p-2.5 bg-[#f4eee3] rounded-lg border border-[#2b1b12]/20 w-full focus:outline-none focus:border-[#b8763c]" 
             />
           </div>
 
-          <p v-if="formError" class="mono text-xs text-[#9b3a2e]">{{ formError }}</p>
+          <p v-if="formError" class="text-xs text-[#9b3a2e] font-medium">{{ formError }}</p>
 
           <div class="flex items-center gap-3 pt-2">
             <button 
               type="submit" 
               :disabled="isSaving" 
-              class="btn-stamp mono flex-1 py-2.5 text-xs rounded-lg"
+              class="btn-stamp flex-1 py-2.5 text-xs rounded-lg font-semibold"
             >
               <span v-if="isSaving" class="dot-spin" aria-hidden="true"></span>
               {{ isSaving ? 'MENYIMPAN…' : (editingCategory ? 'SIMPAN PERUBAHAN' : 'TAMBAH KATEGORI') }}
             </button>
             <button 
               type="button" 
-              class="mono text-xs text-[#8A7A68] hover:text-[#2b1b12] px-4 py-2.5 transition"
+              class="btn-cancel text-xs text-[#8A7A68] hover:text-[#faf6ee] px-4 py-2.5 rounded-lg border border-[#2b1b12]/20 transition font-semibold"
               @click="closeForm"
             >
               Batal
@@ -234,7 +248,7 @@
 useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap' }
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap' }
   ]
 })
 
@@ -408,18 +422,13 @@ async function confirmDelete(category) {
 </script>
 
 <style scoped>
-.display {
-  font-family: 'Space Grotesk', sans-serif;
-}
-
-.mono {
-  font-family: 'IBM Plex Mono', monospace;
+.font-poppins {
+  font-family: 'Poppins', sans-serif;
 }
 
 .label-xs {
   font-size: 0.66rem;
-  font-weight: 500;
-  letter-spacing: 0.11em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -433,8 +442,7 @@ async function confirmDelete(category) {
   background: #2b1b12;
   color: #faf6ee;
   font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.05em;
   padding: 0.75rem 1rem;
   border: 1.5px solid #2b1b12;
   cursor: pointer;
@@ -454,6 +462,39 @@ async function confirmDelete(category) {
 .btn-stamp:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.btn-cancel {
+  background: transparent;
+  border: 1.5px solid rgba(43, 27, 18, 0.2);
+  color: #8A7A68;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel:hover {
+  background: #9b3a2e;
+  border-color: #9b3a2e;
+  color: #faf6ee;
+  transform: translateY(-1px);
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f4eee3 25%, #ebdcc7 50%, #f4eee3 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .dot-spin {

@@ -1,80 +1,138 @@
-<!-- app/components/AppSidebar.vue -->
 <template>
-  <!-- Overlay (mobile only, muncul saat sidebar terbuka) -->
-  <Transition name="fade">
-    <div
-      v-if="isOpen"
-      class="fixed inset-0 bg-black/50 z-40 md:hidden"
-      @click="$emit('close')"
-    />
-  </Transition>
-
-  <!-- Sidebar -->
-  <aside
-    class="fixed md:static inset-y-0 left-0 z-50 w-72 md:w-64 flex-shrink-0 bg-[#1c1410] text-[#f8f5ee] flex flex-col transform transition-transform duration-300 ease-in-out md:translate-x-0"
-    :class="isOpen ? 'translate-x-0' : '-translate-x-full'"
-  >
-    <!-- Brand -->
-    <div class="h-16 flex items-center justify-between px-6 border-b border-[#f8f5ee]/10 flex-shrink-0">
-      <NuxtLink to="/" class="flex items-center gap-2 font-mono text-sm font-bold tracking-widest">
-        <span class="text-lg">☕</span>
-        <span>KEDAI KOPI POS</span>
-      </NuxtLink>
-      <!-- Tombol close, mobile only -->
-      <button
-        class="md:hidden p-1.5 rounded-lg text-[#f8f5ee]/70 hover:text-[#f8f5ee] hover:bg-[#f8f5ee]/10 transition"
+  <div>
+    <!-- Overlay (mobile only, muncul saat sidebar terbuka) -->
+    <Transition name="fade">
+      <div
+        v-if="isOpen"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+        aria-hidden="true"
         @click="$emit('close')"
-      >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
-    </div>
+      />
+    </Transition>
 
-    <!-- Navigasi -->
-    <nav class="flex-1 overflow-y-auto px-3 py-6 space-y-6">
-      <div v-for="group in menuGroups" :key="group.label" class="space-y-1">
-        <p class="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#f8f5ee]/40">
-          {{ group.label }}
-        </p>
+    <!-- Sidebar -->
+    <aside
+      class="fixed md:static inset-y-0 left-0 z-50 w-[82vw] max-w-72 md:w-72 md:max-w-none flex-shrink-0 bg-[#1c1410] text-[#f8f5ee] flex flex-col transform transition-transform duration-300 ease-in-out md:translate-x-0 shadow-2xl md:shadow-none border-r border-[#f8f5ee]/5"
+      :class="isOpen ? 'translate-x-0' : '-translate-x-full'"
+    >
+      <!-- Brand Header -->
+      <div class="h-16 sm:h-20 flex items-center justify-between px-4 sm:px-6 border-b border-[#f8f5ee]/10 flex-shrink-0">
+        <NuxtLink to="/" class="flex items-center gap-2.5 sm:gap-3 group min-w-0">
+          <div class="p-2 rounded-xl bg-[#c9793f]/10 group-hover:bg-[#c9793f]/20 transition-colors flex-shrink-0">
+            <LucideCoffee class="w-6 h-6 sm:w-7 sm:h-7 text-[#c9793f]" />
+          </div>
+          <div class="flex flex-col min-w-0">
+            <span class="font-bold text-sm sm:text-base tracking-tight text-[#f8f5ee] truncate">KEDAI KOPI</span>
+            <span class="text-[10px] sm:text-[11px] font-medium text-[#f8f5ee]/60 -mt-0.5 tracking-wider uppercase truncate">Point of Sale</span>
+          </div>
+        </NuxtLink>
 
-        <NuxtLink
-          v-for="item in group.items"
-          :key="item.to"
-          :to="item.to"
-          class="group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors"
-          :class="isActive(item.to)
-            ? 'bg-[#c9793f] text-[#1c1410]'
-            : 'text-[#f8f5ee]/70 hover:text-[#f8f5ee] hover:bg-[#f8f5ee]/10'"
+        <!-- Tombol close, mobile only -->
+        <button
+          class="md:hidden p-2 rounded-xl text-[#f8f5ee]/60 hover:text-white hover:bg-[#f8f5ee]/10 active:bg-[#f8f5ee]/15 transition-all flex-shrink-0"
+          aria-label="Tutup Menu"
           @click="$emit('close')"
         >
-          <component :is="item.icon" class="w-5 h-5 flex-shrink-0" />
-          <span>{{ item.label }}</span>
-        </NuxtLink>
+          <LucideX class="w-5 h-5" />
+        </button>
       </div>
-    </nav>
 
-    <!-- Profil -->
-    <div class="px-3 py-4 border-t border-[#f8f5ee]/10 flex-shrink-0">
-      <div class="px-3 py-2.5 rounded-xl bg-[#f8f5ee]/5 text-center">
-        <p class="text-sm font-semibold text-[#f8f5ee]/90 tracking-wider uppercase">
-          {{ roleLabel }}
-        </p>
+      <!-- Navigasi -->
+      <nav class="flex-1 min-h-0 overflow-y-auto px-3 sm:px-4 py-6 sm:py-8 space-y-6 sm:space-y-8 scrollbar-thin scrollbar-thumb-[#f8f5ee]/10 scrollbar-track-transparent">
+        <!-- Skeleton (saat role/menu masih ditentukan dari data user) -->
+        <template v-if="userPending">
+          <div v-for="n in 2" :key="n" class="space-y-2">
+            <div class="mx-3 h-2.5 w-24 rounded-full bg-[#f8f5ee]/10 animate-pulse"></div>
+            <div v-for="i in 3" :key="i" class="flex items-center gap-3.5 px-3.5 py-3">
+              <div class="w-5 h-5 rounded-md bg-[#f8f5ee]/10 animate-pulse flex-shrink-0"></div>
+              <div class="h-3 rounded-full bg-[#f8f5ee]/10 animate-pulse" :style="{ width: `${55 + i * 8}%` }"></div>
+            </div>
+          </div>
+        </template>
+
+        <template v-else>
+          <div v-for="group in menuGroups" :key="group.label" class="space-y-2">
+            <!-- Group Label -->
+            <p class="px-3 text-[11px] font-bold uppercase tracking-wider text-[#f8f5ee]/40 select-none">
+              {{ group.label }}
+            </p>
+
+            <!-- Menu Items -->
+            <NuxtLink
+              v-for="item in group.items"
+              :key="item.to"
+              :to="item.to"
+              class="group flex items-center gap-3.5 px-3.5 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ease-in-out"
+              :class="isActive(item.to)
+                ? 'bg-[#c9793f] text-[#1c1410] shadow-md shadow-[#c9793f]/20'
+                : 'text-[#f8f5ee]/70 hover:text-white hover:bg-[#f8f5ee]/5 active:bg-[#f8f5ee]/10'"
+              @click="$emit('close')"
+            >
+              <!-- Ikon Lucide -->
+              <component
+                :is="item.icon"
+                class="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-105"
+                :class="isActive(item.to) ? 'text-[#1c1410]/80' : 'text-[#f8f5ee]/50'"
+              />
+              <span class="truncate">{{ item.label }}</span>
+
+              <!-- Indikator Aktif (opsional, di kanan) -->
+              <div v-if="isActive(item.to)" class="ml-auto w-1.5 h-1.5 rounded-full bg-[#1c1410]/30 flex-shrink-0"></div>
+            </NuxtLink>
+          </div>
+        </template>
+      </nav>
+
+      <!-- Profil User Bawah -->
+      <div class="px-3 sm:px-4 py-4 sm:py-6 mt-auto border-t border-[#f8f5ee]/10 flex-shrink-0 bg-[#17100d]">
+        <div class="flex items-center gap-3 px-3 py-3 rounded-2xl bg-[#f8f5ee]/5 border border-[#f8f5ee]/10">
+          <!-- Skeleton (saat data user masih dimuat) -->
+          <template v-if="userPending">
+            <div class="w-10 h-10 rounded-full bg-[#f8f5ee]/10 animate-pulse flex-shrink-0"></div>
+            <div class="flex-1 min-w-0 space-y-2">
+              <div class="h-3 w-24 rounded-full bg-[#f8f5ee]/10 animate-pulse"></div>
+              <div class="h-2.5 w-14 rounded-full bg-[#f8f5ee]/10 animate-pulse"></div>
+            </div>
+            <div class="w-6 h-6 rounded-lg bg-[#f8f5ee]/10 animate-pulse flex-shrink-0"></div>
+          </template>
+
+          <!-- Konten Asli (setelah data siap) -->
+          <template v-else>
+            <div class="relative flex-shrink-0">
+              <img
+                :src="`https://api.dicebear.com/8.x/notionists-neutral/svg?seed=${user?.name || 'user'}&backgroundColor=c9793f`"
+                alt="Avatar"
+                class="w-10 h-10 rounded-full bg-[#1c1410] border-2 border-[#f8f5ee]/10"
+              />
+              <span class="absolute bottom-0 right-0 block h-3 w-3 rounded-full ring-2 ring-[#17100d] bg-emerald-500" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-bold text-white truncate">
+                {{ user?.name || 'Memuat...' }}
+              </p>
+              <p class="text-xs font-medium text-[#c9793f] uppercase tracking-wide truncate">
+                Kasir
+              </p>
+            </div>
+          </template>
+        </div>
       </div>
-    </div>
-  </aside>
+    </aside>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { h, computed, markRaw } from 'vue'
+import { computed } from 'vue'
 import { useRoute, useRequestHeaders, useFetch } from '#imports'
+// Ikon diimpor secara otomatis oleh nuxt-lucide-icons
 
+// --- Props & Emits ---
 defineProps<{ isOpen: boolean }>()
 defineEmits<{ close: [] }>()
 
 const route = useRoute()
 
-// Ambil data user yang sedang login dari /api/auth/me
+// --- Data Fetching ---
 interface AuthUser {
   id: string
   name: string
@@ -82,90 +140,77 @@ interface AuthUser {
   role: 'KASIR' | 'PEMILIK'
 }
 
-// Forward cookie browser ke request SSR
+// Forward cookie browser ke request SSR untuk autentikasi
 const headers = useRequestHeaders(['cookie'])
 
-const { data: user } = useFetch<AuthUser>('/api/auth/me', {
+const { data: user, pending: userPending } = useFetch<AuthUser>('/api/auth/me', {
   headers,
+  // Tangani error secara diam-diam jika belum login
   onResponseError: () => {},
 })
 
-// Role normalisasi agar case-insensitive (mendukung uppercase/lowercase dari API)
+// --- Computed Properties ---
+
+// Role normalisasi (dipakai untuk menentukan path menu, bukan untuk label footer)
 const role = computed<'KASIR' | 'PEMILIK'>(() => {
   const currentRole = user.value?.role?.toUpperCase()
   if (currentRole === 'PEMILIK') return 'PEMILIK'
   if (currentRole === 'KASIR') return 'KASIR'
+  // Fallback berdasarkan path URL jika API belum siap
   return route.path.startsWith('/owner') ? 'PEMILIK' : 'KASIR'
 })
 
-const roleLabel = computed(() =>
-  role.value === 'PEMILIK' ? 'Pemilik' : 'Kasir'
-)
-
-// Helper untuk membuat ikon SVG dengan markRaw
-function icon(paths: string) {
-  return markRaw(() =>
-    h(
-      'svg',
-      { class: 'w-5 h-5', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' },
-      [h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: paths })]
-    )
-  )
-}
-
+// --- Konfigurasi Menu ---
 const menuGroups = computed(() => [
   {
-    label: 'Utama',
+    label: 'Halaman Utama',
     items: [
       {
-        label: 'Dashboard',
+        label: 'Ringkasan',
         to: role.value === 'PEMILIK' ? '/owner/dashboard' : '/kasir/dashboard',
-        icon: icon('M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'),
+        icon: resolveComponent('LucideLayoutGrid'),
       },
       {
-        label: 'Pos',
+        label: 'Kasir (POS)',
         to: '/kasir/pos',
-        icon: icon('M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z'),
+        icon: resolveComponent('LucideMonitorSmartphone'),
       },
     ],
   },
   {
-    label: 'Manajemen',
+    label: 'Manajemen Kedai',
     items: [
       {
-        label: 'Produk',
+        label: 'Daftar Produk',
         to: role.value === 'PEMILIK' ? '/owner/product' : '/kasir/product',
-        icon: icon('M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'),
+        icon: resolveComponent('LucidePackage'),
       },
       {
-        label: 'Kategori',
+        label: 'Kategori Menu',
         to: role.value === 'PEMILIK' ? '/owner/category' : '/kasir/category',
-        icon: icon('M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10'),
+        icon: resolveComponent('LucideTags'),
       },
       {
-        label: 'Transaksi',
+        label: 'Riwayat Transaksi',
         to: role.value === 'PEMILIK' ? '/owner/transaksi' : '/kasir/transaksi',
-        icon: icon('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'),
+        icon: resolveComponent('LucideReceiptText'),
       },
     ],
   },
   {
-    label: 'Lainnya',
+    label: 'Analisis & Sistem',
     items: [
       {
-        label: 'Laporan',
+        label: 'Laporan Penjualan',
         to: role.value === 'PEMILIK' ? '/owner/laporan' : '/kasir/laporan',
-        icon: icon('M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'),
+        icon: resolveComponent('LucideBarChartBig'),
       },
-      // Menu Pengaturan hanya untuk PEMILIK
       ...(role.value === 'PEMILIK'
         ? [
             {
-              label: 'Pengaturan',
+              label: 'Pengaturan Kedai',
               to: '/owner/pengaturan',
-              icon: icon(
-                'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z'
-              ),
+              icon: resolveComponent('LucideSettings'),
             },
           ]
         : []),
@@ -173,9 +218,10 @@ const menuGroups = computed(() => [
   },
 ])
 
-// Cari SATU item dengan prefix path paling spesifik (terpanjang) yang match
+// --- Logika Navigasi Aktif ---
 const activeTo = computed<string | null>(() => {
   const allPaths = menuGroups.value.flatMap((g) => g.items.map((i) => i.to))
+  // Cari path yang paling spesifik (terpanjang) yang cocok dengan URL saat ini
   const matches = allPaths.filter(
     (to) => route.path === to || route.path.startsWith(to + '/')
   )
@@ -191,13 +237,19 @@ function isActive(to: string) {
 </script>
 
 <style scoped>
+/* Transisi Overlay */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.3s ease-in-out;
 }
 
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* Kustomisasi Scrollbar Webkit (opsional) */
+.scrollbar-thin {
+  scrollbar-width: thin;
 }
 </style>

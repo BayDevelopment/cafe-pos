@@ -1,210 +1,472 @@
-<!-- app/pages/kasir/transaksi.vue -->
 <template>
-  <div class="p-6 md:p-10 max-w-6xl mx-auto space-y-8 font-sans">
+  <div class="p-4 sm:p-6 md:p-10 max-w-6xl mx-auto space-y-6 md:space-y-8 font-sans relative">
+
+    <!-- TOAST ALERT NOTIFICATION -->
+    <Transition name="slide-fade">
+      <div v-if="showAlert"
+        class="fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border mono text-xs"
+        :class="alertType === 'success' ? 'bg-[#2b1b12] text-[#faf6ee] border-[#b8763c]' : 'bg-[#9b3a2e] text-[#faf6ee] border-[#7a2e24]'">
+        <span class="text-base">{{ alertType === 'success' ? '✅' : '⚠️' }}</span>
+        <p class="font-medium">{{ alertMessage }}</p>
+      </div>
+    </Transition>
 
     <!-- HEADER HALAMAN -->
-    <header class="ticket-card p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-      <div>
-        <div class="flex items-center gap-2 mb-1">
-          <span class="mono label-xs px-2 py-0.5 rounded bg-[#2b1b12] text-[#faf6ee]">KASIR</span>
-          <span class="mono label-xs text-[#8A7A68]">RIWAYAT PENJUALAN</span>
+    <header class="ticket-card p-5 md:p-6 space-y-5">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="mono label-xs px-2 py-0.5 rounded bg-[#2b1b12] text-[#faf6ee]">KASIR</span>
+            <span class="mono label-xs text-[#8A7A68]">RIWAYAT PENJUALAN</span>
+          </div>
+          <h1 class="display text-xl sm:text-2xl text-[#2b1b12] font-bold">Daftar Transaksi</h1>
+          <p class="mono text-xs text-[#8A7A68] mt-0.5">Pantau dan kelola semua histori pembayaran pelanggan.</p>
         </div>
-        <h1 class="display text-2xl text-[#2b1b12] font-bold">Daftar Transaksi</h1>
-        <p class="mono text-xs text-[#8A7A68] mt-0.5">Pantau dan kelola semua histori pembayaran pelanggan.</p>
+
+        <div class="flex items-center gap-2 self-start md:self-auto">
+          <span class="live-dot" :class="{ 'live-dot--syncing': pending }" />
+          <span class="mono label-xs text-[#8A7A68]">
+            {{ pending ? 'MENYINKRONKAN...' : 'LIVE · TERSAMBUNG' }}
+          </span>
+        </div>
       </div>
 
-      <!-- RINGKASAN SINGKAT HARI INI -->
-      <div class="flex gap-3 text-right">
-        <div class="bg-[#f4eee3] p-3 rounded border border-[#2b1b12]/10">
-          <p class="mono label-xs text-[#8A7A68]">Total Penjualan</p>
-          <p class="display font-bold text-[#2b1b12] text-lg">{{ formatRupiah(summary.totalAmount) }}</p>
+      <!-- RINGKASAN STRUK GAYA SUB-TOTAL -->
+      <div v-if="hasData"
+        class="grid grid-cols-3 gap-2 sm:gap-3 pt-4 border-t border-dashed border-[#2b1b12]/15 transition-opacity"
+        :class="{ 'opacity-50': pending }">
+        <div class="stat-box">
+          <p class="mono label-xs text-[#8A7A68]">
+            Total Penjualan{{ summary.scopedToPage ? ' (halaman ini)' : '' }}
+          </p>
+          <p class="display font-bold text-[#2b1b12] text-sm sm:text-lg num">{{ formatRupiah(summary.totalAmount) }}</p>
+        </div>
+        <div class="stat-box">
+          <p class="mono label-xs text-[#8A7A68]">Transaksi Selesai{{ summary.scopedToPage ? ' (halaman ini)' : '' }}
+          </p>
+          <p class="display font-bold text-[#2b1b12] text-sm sm:text-lg num">{{ summary.successCount }}</p>
+        </div>
+        <div class="stat-box">
+          <p class="mono label-xs text-[#8A7A68]">Rata-rata / Transaksi</p>
+          <p class="display font-bold text-[#2b1b12] text-sm sm:text-lg num">{{ formatRupiah(summary.average) }}</p>
         </div>
       </div>
     </header>
 
+    <!-- BANNER PESANAN BARU -->
+    <Transition name="slide-fade">
+      <button v-if="showNewOrderBanner" type="button"
+        class="w-full flex items-center justify-between gap-3 px-4 py-3 rounded border banner-new mono text-xs"
+        @click="handleNewOrderBannerClick">
+        <span class="flex items-center gap-2">
+          <span class="pulse-dot" />
+          {{ newOrderCount }} pesanan baru masuk{{ page > 1 ? ' — lihat di Halaman 1' : ', daftar sudah diperbarui otomatis.' }}
+        </span>
+        <span class="underline shrink-0">{{ page > 1 ? 'Ke Halaman 1' : 'Tutup' }}</span>
+      </button>
+    </Transition>
+
     <!-- FILTER & PENCARIAN -->
-    <div class="ticket-card p-4 flex flex-col sm:flex-row gap-4 items-center justify-between">
-      <div class="relative w-full sm:w-72">
-        <input 
-          v-model="searchQuery" 
-          type="text" 
-          placeholder="Cari ID / Nama Pelanggan..."
-          class="field mono text-xs p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full focus:outline-none focus:border-[#b8763c]"
-        />
+    <div class="ticket-card p-4 flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center sm:justify-between">
+      <div class="relative w-full sm:w-80">
+        <input v-model="searchInput" type="text" placeholder="Cari ID, Pelanggan, atau Kasir..." :disabled="noDataAtAll"
+          class="field mono text-xs p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full focus:outline-none focus:border-[#b8763c] disabled:opacity-50 disabled:cursor-not-allowed" />
       </div>
 
-      <div class="flex items-center gap-3 w-full sm:w-auto overflow-x-auto">
-        <select 
-          v-model="selectedStatus" 
-          class="field mono text-xs p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 focus:outline-none focus:border-[#b8763c]"
-        >
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+        <select v-model="selectedStatus" :disabled="noDataAtAll"
+          class="field mono text-xs p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 focus:outline-none focus:border-[#b8763c] disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto">
           <option value="">Semua Status</option>
           <option value="SUCCESS">Selesai</option>
           <option value="CANCELLED">Dibatalkan</option>
         </select>
 
-        <select 
-          v-model="selectedPayment" 
-          class="field mono text-xs p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 focus:outline-none focus:border-[#b8763c]"
-        >
+        <select v-model="selectedPayment" :disabled="noDataAtAll"
+          class="field mono text-xs p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 focus:outline-none focus:border-[#b8763c] disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto">
           <option value="">Semua Pembayaran</option>
           <option value="QRIS">QRIS</option>
           <option value="CASH">Tunai (Cash)</option>
           <option value="DEBIT">Kartu Debit</option>
         </select>
+
+        <select v-model.number="pageSize" :disabled="noDataAtAll"
+          class="field mono text-xs p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 focus:outline-none focus:border-[#b8763c] disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto">
+          <option v-for="size in pageSizeOptions" :key="size" :value="size">{{ size }} / halaman</option>
+        </select>
+
+        <button v-if="isFilteringActive" type="button"
+          class="mono label-xs text-[#b8763c] hover:underline whitespace-nowrap px-1" @click="clearFilters">
+          Reset filter
+        </button>
       </div>
     </div>
 
-    <!-- LOADING STATE -->
-    <div v-if="pending" class="ticket-card p-10 text-center mono text-xs text-[#8A7A68]">
-      MEMUAT DATA TRANSAKSI...
-    </div>
-
     <!-- ERROR STATE -->
-    <div v-else-if="fetchError" class="ticket-card p-10 text-center space-y-3">
-      <p class="mono text-xs text-[#9b3a2e]">Gagal memuat data transaksi. Periksa koneksi atau coba lagi.</p>
-      <button 
-        type="button" 
-        class="btn-stamp mono inline-flex px-4 py-2 text-xs"
-        @click="refreshTransactions"
-      >
+    <div v-if="fetchError && !pending" class="ticket-card p-10 text-center space-y-3">
+      <p class="mono text-xs text-[#9b3a2e]">
+        {{ fetchError?.data?.statusMessage || 'Gagal memuat data transaksi. Cek koneksi internet, lalu coba lagi.' }}
+      </p>
+      <button type="button" class="btn-stamp mono inline-flex px-4 py-2 text-xs" @click="refreshTransactions">
         COBA LAGI
       </button>
     </div>
 
-    <!-- TABEL TRANSAKSI -->
-    <main v-else class="ticket-card overflow-hidden">
-      <div class="overflow-x-auto">
+    <template v-else>
+      <!-- SKELETON (desktop / tablet) -->
+      <div v-if="pending" class="ticket-card overflow-hidden hidden md:block">
         <table class="w-full text-sm text-left">
           <thead>
             <tr class="border-b border-[#2b1b12]/10 bg-[#f4eee3]">
-              <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3">ID Transaksi</th>
-              <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3">Waktu</th>
-              <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3">Pelanggan</th>
-              <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3">Metode</th>
-              <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3">Status</th>
-              <th scope="col" class="mono label-xs text-right text-[#8A7A68] px-5 py-3">Total</th>
-              <th scope="col" class="mono label-xs text-right text-[#8A7A68] px-5 py-3">Aksi</th>
+              <th class="mono label-xs text-[#8A7A68] px-5 py-3">ID Transaksi</th>
+              <th class="mono label-xs text-[#8A7A68] px-5 py-3">Waktu</th>
+              <th class="mono label-xs text-[#8A7A68] px-5 py-3">Pelanggan</th>
+              <th class="mono label-xs text-[#8A7A68] px-5 py-3">Metode</th>
+              <th class="mono label-xs text-[#8A7A68] px-5 py-3">Status</th>
+              <th class="mono label-xs text-right text-[#8A7A68] px-5 py-3">Total</th>
+              <th class="mono label-xs text-center text-[#8A7A68] px-5 py-3">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-[#2b1b12]/5">
-            <tr 
-              v-for="trx in filteredTransactions" 
-              :key="trx.id"
-              class="hover:bg-[#f4eee3]/50 transition-colors"
-            >
-              <td class="px-5 py-4 mono font-bold text-[#2b1b12]">
-                #{{ trx.invoiceNo }}
-              </td>
-              <td class="px-5 py-4 mono text-xs text-[#8A7A68]">
-                {{ formatDate(trx.createdAt) }}
-              </td>
-              <td class="px-5 py-4 font-semibold text-[#2b1b12] display">
-                {{ trx.customerName || 'Pelanggan Anonim' }}
-              </td>
-              <td class="px-5 py-4">
-                <span class="mono label-xs px-2 py-0.5 rounded bg-[#2b1b12]/5 text-[#2b1b12] border border-[#2b1b12]/10">
-                  {{ trx.paymentMethod }}
-                </span>
-              </td>
-              <td class="px-5 py-4">
-                <span 
-                  class="mono label-xs px-2 py-0.5 rounded"
-                  :class="trx.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'"
-                >
-                  {{ trx.status === 'SUCCESS' ? 'SELESAI' : 'BATAL' }}
-                </span>
-              </td>
-              <td class="px-5 py-4 text-right display font-bold text-[#2b1b12]">
-                {{ formatRupiah(trx.totalAmount) }}
-              </td>
-              <td class="px-5 py-4 text-right">
-                <button 
-                  type="button"
-                  class="mono text-xs text-[#b8763c] hover:underline font-semibold"
-                  @click="openDetailModal(trx)"
-                >
-                  Detail
-                </button>
-              </td>
+            <tr v-for="n in skeletonCount" :key="'sk-' + n">
+              <td class="px-5 py-4"><div class="skeleton h-4 w-20 rounded"></div></td>
+              <td class="px-5 py-4"><div class="skeleton h-4 w-24 rounded"></div></td>
+              <td class="px-5 py-4"><div class="skeleton h-4 w-24 rounded"></div></td>
+              <td class="px-5 py-4"><div class="skeleton h-4 w-16 rounded"></div></td>
+              <td class="px-5 py-4"><div class="skeleton h-4 w-16 rounded-full"></div></td>
+              <td class="px-5 py-4 text-right"><div class="skeleton h-4 w-20 rounded ml-auto"></div></td>
+              <td class="px-5 py-4 text-center"><div class="skeleton h-5 w-12 rounded mx-auto"></div></td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <div v-if="filteredTransactions.length === 0" class="p-10 text-center mono text-xs text-[#8A7A68]">
-        Tidak ada transaksi yang ditemukan.
+      <!-- SKELETON (mobile) -->
+      <div v-if="pending" class="space-y-3 md:hidden">
+        <div v-for="n in skeletonCount" :key="'sk-m-' + n" class="ticket-card p-4 space-y-3">
+          <div class="flex justify-between">
+            <div class="skeleton h-4 w-28 rounded"></div>
+            <div class="skeleton h-4 w-14 rounded-full"></div>
+          </div>
+          <div class="skeleton h-3 w-32 rounded"></div>
+          <div class="flex justify-between pt-2 border-t border-dashed border-[#2b1b12]/15">
+            <div class="skeleton h-3 w-20 rounded"></div>
+            <div class="skeleton h-4 w-16 rounded"></div>
+          </div>
+        </div>
       </div>
-    </main>
+
+      <!-- EMPTY STATE -->
+      <div v-else-if="!hasData" class="ticket-card p-10 text-center space-y-1">
+        <template v-if="isFilteringActive">
+          <p class="mono text-xs text-[#2b1b12] font-semibold">Tidak ada transaksi yang cocok.</p>
+          <p class="mono text-xs text-[#8A7A68]">Coba ubah kata kunci atau filter yang digunakan.</p>
+          <button type="button" class="mono label-xs text-[#b8763c] hover:underline mt-2" @click="clearFilters">
+            Reset filter
+          </button>
+        </template>
+        <template v-else>
+          <p class="mono text-xs text-[#2b1b12] font-semibold">Belum ada transaksi.</p>
+          <p class="mono text-xs text-[#8A7A68]">Transaksi akan muncul otomatis di sini begitu pembayaran berhasil.</p>
+        </template>
+      </div>
+
+      <template v-else>
+        <!-- TABEL TRANSAKSI (desktop / tablet) -->
+        <main class="ticket-card overflow-hidden hidden md:block">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+              <thead>
+                <tr class="border-b border-[#2b1b12]/10 bg-[#f4eee3]">
+                  <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3">ID Transaksi</th>
+                  <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3">Waktu</th>
+                  <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3">Pelanggan</th>
+                  <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3">Metode</th>
+                  <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3">Status</th>
+                  <th scope="col" class="mono label-xs text-right text-[#8A7A68] px-5 py-3">Total</th>
+                  <th scope="col" class="mono label-xs text-center text-[#8A7A68] px-5 py-3">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[#2b1b12]/5">
+                <tr v-for="trx in filteredTransactions" :key="trx.id" class="transition-colors"
+                  :class="isNew(trx.id) ? 'row-new' : 'hover:bg-[#f4eee3]/50'">
+                  <td class="px-5 py-4 mono font-bold text-[#2b1b12]">
+                    <span class="inline-flex items-center gap-2">
+                      #{{ formatInvoiceNo(trx.invoiceNo || trx.id) }}
+                      <span v-if="isNew(trx.id)" class="badge badge-new">BARU</span>
+                    </span>
+                  </td>
+                  <td class="px-5 py-4 mono text-xs text-[#8A7A68]">
+                    {{ formatDate(trx.createdAt) }}
+                  </td>
+                  <td class="px-5 py-4 mono text-xs text-[#2b1b12] font-semibold">
+                    {{ trx.customerName || 'Pelanggan Umum' }}
+                  </td>
+                  <td class="px-5 py-4">
+                    <span class="mono label-xs px-2 py-0.5 rounded bg-[#2b1b12]/5 text-[#2b1b12] border border-[#2b1b12]/10 uppercase">
+                      {{ trx.paymentMethod || '-' }}
+                    </span>
+                  </td>
+                  <td class="px-5 py-4">
+                    <span class="badge" :class="trx.status === 'SUCCESS' ? 'badge-success' : 'badge-danger'">
+                      {{ trx.status === 'SUCCESS' ? 'SELESAI' : 'BATAL' }}
+                    </span>
+                  </td>
+                  <td class="px-5 py-4 text-right display font-bold text-[#2b1b12] num">
+                    {{ formatRupiah(trx.totalAmount) }}
+                  </td>
+                  <td class="px-5 py-4 text-center">
+                    <div class="flex items-center justify-center gap-1">
+                      <!-- ICON DETAIL -->
+                      <button type="button"
+                        class="p-1.5 rounded text-[#2b1b12] hover:text-[#b8763c] hover:bg-[#2b1b12]/5 transition"
+                        title="Lihat Detail Transaksi" @click="openDetailModal(trx)">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24"
+                          stroke="currentColor" stroke-width="1.8">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      </button>
+
+                      <!-- ICON DELETE / HAPUS -->
+                      <button type="button" class="p-1.5 rounded text-[#9b3a2e] hover:bg-[#9b3a2e]/10 transition"
+                        title="Hapus Transaksi" @click="confirmDelete(trx)">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24"
+                          stroke="currentColor" stroke-width="1.8">
+                          <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </main>
+
+        <!-- KARTU TRANSAKSI (mobile) -->
+        <main class="space-y-3 md:hidden">
+          <div v-for="trx in filteredTransactions" :key="trx.id" class="ticket-card w-full text-left p-4 space-y-2.5"
+            :class="{ 'row-new': isNew(trx.id) }">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="mono font-bold text-[#2b1b12] text-sm inline-flex items-center gap-2">
+                  #{{ formatInvoiceNo(trx.invoiceNo || trx.id) }}
+                  <span v-if="isNew(trx.id)" class="badge badge-new">BARU</span>
+                </p>
+                <p class="mono text-[0.7rem] text-[#8A7A68] mt-0.5">
+                  Pelanggan: <span class="font-semibold text-[#2b1b12]">{{ trx.customerName || 'Pelanggan Umum' }}</span>
+                </p>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <span class="badge" :class="trx.status === 'SUCCESS' ? 'badge-success' : 'badge-danger'">
+                  {{ trx.status === 'SUCCESS' ? 'SELESAI' : 'BATAL' }}
+                </span>
+
+                <!-- TOMBOL ACTION MOBILE -->
+                <button type="button" class="p-1 rounded text-[#2b1b12] hover:text-[#b8763c] transition-colors"
+                  title="Lihat Detail" @click="openDetailModal(trx)">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="1.8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </button>
+
+                <button type="button" class="p-1 rounded text-[#9b3a2e] hover:bg-[#9b3a2e]/10 transition-colors"
+                  title="Hapus Transaksi" @click="confirmDelete(trx)">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="1.8">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-2 border-t border-dashed border-[#2b1b12]/15">
+              <div class="mono text-xs text-[#8A7A68] space-y-0.5">
+                <p>{{ formatDate(trx.createdAt) }}</p>
+                <p class="uppercase font-semibold text-[#2b1b12]">{{ trx.paymentMethod || '-' }}</p>
+              </div>
+              <p class="display font-bold text-[#2b1b12] num">{{ formatRupiah(trx.totalAmount) }}</p>
+            </div>
+          </div>
+        </main>
+
+        <!-- PAGINATION -->
+        <div class="ticket-card p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p class="mono label-xs text-[#8A7A68]">
+            Menampilkan {{ rangeStart }}–{{ rangeEnd }} dari {{ totalItems.toLocaleString('id-ID') }} transaksi
+          </p>
+
+          <div class="flex items-center gap-1.5 mono text-xs">
+            <button type="button" class="page-btn" :disabled="page <= 1" @click="goToPage(page - 1)">
+              ‹ Sebelumnya
+            </button>
+
+            <template v-for="(item, idx) in pageWindow" :key="idx">
+              <span v-if="item === '...'" class="px-1.5 text-[#8A7A68]">...</span>
+              <button v-else type="button" class="page-btn page-btn--num" :class="{ 'page-btn--active': item === page }"
+                @click="goToPage(item)">
+                {{ item }}
+              </button>
+            </template>
+
+            <button type="button" class="page-btn" :disabled="page >= totalPages" @click="goToPage(page + 1)">
+              Berikutnya ›
+            </button>
+          </div>
+        </div>
+      </template>
+    </template>
+
+    <!-- MODAL CONFIRM DELETE -->
+    <Teleport to="body">
+      <div v-if="trxToDelete"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        @click.self="trxToDelete = null">
+        <div class="ticket-card w-full max-w-sm p-6 space-y-4">
+          <div class="text-center space-y-2">
+            <div class="w-12 h-12 rounded-full bg-[#9b3a2e]/10 text-[#9b3a2e] flex items-center justify-center mx-auto">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 class="display font-bold text-lg text-[#2b1b12]">Hapus Transaksi?</h3>
+            <p class="mono text-xs text-[#8A7A68]">
+              Apakah Anda yakin ingin menghapus transaksi <span class="font-bold text-[#2b1b12]">#{{
+                formatInvoiceNo(trxToDelete.invoiceNo || trxToDelete.id)
+                }}</span>? Tindakan ini tidak dapat dibatalkan.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2 pt-2">
+            <button type="button"
+              class="flex-1 py-2 rounded mono text-xs border border-[#2b1b12]/20 text-[#2b1b12] hover:bg-[#2b1b12]/5 transition"
+              :disabled="isDeleting" @click="trxToDelete = null">
+              Batal
+            </button>
+            <button type="button"
+              class="flex-1 py-2 rounded mono text-xs bg-[#9b3a2e] text-[#faf6ee] font-bold hover:bg-[#7a2e24] transition disabled:opacity-50"
+              :disabled="isDeleting" @click="deleteTransaction">
+              {{ isDeleting ? 'MENGHAPUS...' : 'HAPUS' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- MODAL DETAIL TRANSAKSI & STRUK -->
     <Teleport to="body">
-      <div 
-        v-if="selectedTrx" 
+      <div v-if="selectedTrx"
         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-        @click.self="closeDetailModal"
-      >
-        <div class="ticket-card w-full max-w-md p-6 space-y-5">
-          <!-- Header Struk -->
-          <div class="text-center border-b border-dashed border-[#2b1b12]/20 pb-4">
-            <h2 class="display text-xl text-[#2b1b12] font-bold">RUMAH KOPI</h2>
-            <p class="mono text-xs text-[#8A7A68]">Struk Pembayaran #{{ selectedTrx.invoiceNo }}</p>
-            <p class="mono label-xs text-[#8A7A68] mt-1">{{ formatDate(selectedTrx.createdAt) }}</p>
-          </div>
+        @click.self="closeDetailModal">
+        <div class="ticket-card receipt-card w-full max-w-md p-6 pb-8 space-y-5">
 
-          <!-- Rincian Item -->
-          <div class="space-y-3 max-h-60 overflow-y-auto pr-1">
-            <div 
-              v-for="item in selectedTrx.items" 
-              :key="item.id" 
-              class="flex justify-between items-start text-xs mono"
-            >
-              <div>
-                <p class="font-bold text-[#2b1b12]">{{ item.productName }}</p>
-                <p class="text-[#8A7A68]">{{ item.qty }}x @{{ formatRupiah(item.price) }}</p>
-                <p v-if="item.note" class="text-[0.65rem] italic text-[#b8763c]">Catatan: {{ item.note }}</p>
+          <!-- HEADER STRUK -->
+          <div class="text-center border-b border-dashed border-[#2b1b12]/20 pb-4">
+            <h2 class="display text-xl text-[#2b1b12] font-bold uppercase">COFFEE SHOP POS</h2>
+            <p class="mono text-xs text-[#8A7A68]">
+              Struk Pembayaran #{{ formatInvoiceNo(selectedTrx.invoiceNo || selectedTrx.id) }}
+            </p>
+            <p class="mono label-xs text-[#8A7A68] mt-1">{{ formatDate(selectedTrx.createdAt) }}</p>
+
+            <!-- INFORMASI PELANGGAN & KASIR -->
+            <div
+              class="mt-3 pt-2 border-t border-dotted border-[#2b1b12]/10 flex justify-between text-xs mono text-[#2b1b12]">
+              <div class="text-left">
+                <span class="text-[#8A7A68] text-[0.65rem] block uppercase">Pelanggan:</span>
+                <span class="font-bold">{{ selectedTrx.customerName || 'Pelanggan Umum' }}</span>
               </div>
-              <p class="font-bold text-[#2b1b12]">{{ formatRupiah(item.qty * item.price) }}</p>
+              <div class="text-right">
+                <span class="text-[#8A7A68] text-[0.65rem] block uppercase">Kasir:</span>
+                <span class="font-bold">
+                  {{ selectedTrx.cashier?.name || selectedTrx.cashierName || 'Kasir' }}
+                </span>
+              </div>
             </div>
           </div>
 
-          <!-- Total & Pembayaran -->
+          <!-- RINCIAN ITEM -->
+          <div class="space-y-3 max-h-60 overflow-y-auto pr-1">
+            <div v-for="(item, index) in getItemList(selectedTrx)" :key="item.id || index"
+              class="flex justify-between items-start text-xs mono">
+              <div>
+                <p class="font-bold text-[#2b1b12]">{{ getItemName(item) }}</p>
+                <p class="text-[#8A7A68] num">
+                  {{ getItemQty(item) }}x @{{ formatRupiah(item.price) }}
+                </p>
+                <p v-if="item.note" class="text-[0.65rem] italic text-[#b8763c]">
+                  Catatan: {{ item.note }}
+                </p>
+              </div>
+              <p class="font-bold text-[#2b1b12] num">
+                {{ formatRupiah(getItemQty(item) * Number(item.price || 0)) }}
+              </p>
+            </div>
+
+            <p v-if="!getItemList(selectedTrx) || getItemList(selectedTrx).length === 0"
+              class="text-xs mono text-[#8A7A68] text-center py-2">
+              Tidak ada rincian item.
+            </p>
+          </div>
+
+          <!-- TOTAL & PEMBAYARAN -->
           <div class="border-t border-dashed border-[#2b1b12]/20 pt-4 space-y-1.5 mono text-xs">
+            <!-- Subtotal -->
             <div class="flex justify-between text-[#8A7A68]">
               <span>Subtotal</span>
-              <span>{{ formatRupiah(selectedTrx.subtotal) }}</span>
+              <span class="num">{{ formatRupiah(calculateSubtotal(selectedTrx)) }}</span>
             </div>
-            <div v-if="selectedTrx.tax" class="flex justify-between text-[#8A7A68]">
-              <span>Pajak (10%)</span>
-              <span>{{ formatRupiah(selectedTrx.tax) }}</span>
+
+            <!-- Diskon (Jika Ada) -->
+            <div v-if="Number(selectedTrx.discount) > 0" class="flex justify-between text-[#8A7A68]">
+              <span>Diskon</span>
+              <span class="num text-[#9b3a2e]">- {{ formatRupiah(selectedTrx.discount) }}</span>
             </div>
-            <div class="flex justify-between text-sm font-bold text-[#2b1b12] pt-1">
+
+            <!-- Pajak (Jika Ada) -->
+            <div v-if="Number(selectedTrx.tax) > 0" class="flex justify-between text-[#8A7A68]">
+              <span>Pajak</span>
+              <span class="num">{{ formatRupiah(selectedTrx.tax) }}</span>
+            </div>
+
+            <!-- Grand Total -->
+            <div class="flex justify-between text-sm font-bold text-[#2b1b12] pt-1 border-t border-[#2b1b12]/10">
               <span>TOTAL</span>
-              <span>{{ formatRupiah(selectedTrx.totalAmount) }}</span>
+              <span class="num display text-base">{{ formatRupiah(selectedTrx.totalAmount) }}</span>
             </div>
+
+            <!-- Metode Pembayaran -->
             <div class="flex justify-between text-[#8A7A68] pt-1">
               <span>Metode Pembayaran</span>
-              <span class="font-bold">{{ selectedTrx.paymentMethod }}</span>
+              <span class="font-bold uppercase text-[#2b1b12]">{{ selectedTrx.paymentMethod || 'CASH' }}</span>
+            </div>
+
+            <!-- Catatan Transaksi -->
+            <div v-if="selectedTrx.note" class="pt-2 text-[0.68rem] text-[#8A7A68]">
+              <span class="font-bold block text-[#2b1b12]">Catatan Pesanan:</span>
+              <p class="italic bg-[#f4eee3] p-1.5 rounded border border-[#2b1b12]/10 mt-0.5">{{ selectedTrx.note }}</p>
             </div>
           </div>
 
-          <!-- Action Buttons -->
+          <!-- ACTION BUTTONS -->
           <div class="flex items-center gap-3 pt-2">
-            <button 
-              type="button" 
-              class="btn-stamp mono flex-1 py-2.5 text-xs"
-              @click="printReceipt(selectedTrx)"
-            >
-              🖨️ CETAK STRUK
-            </button>
-            <button 
-              type="button" 
-              class="mono text-xs text-[#8A7A68] hover:text-[#2b1b12] px-4 py-2.5 transition"
-              @click="closeDetailModal"
-            >
+            <NuxtLink :to="`/kasir/order/${selectedTrx.id}`" class="btn-stamp mono flex-1 py-2.5 text-xs text-center">
+              🖨️ LIHAT STRUK
+            </NuxtLink>
+            <button type="button" class="mono text-xs text-[#8A7A68] hover:text-[#2b1b12] px-4 py-2.5 transition"
+              @click="closeDetailModal">
               Tutup
             </button>
           </div>
+
         </div>
       </div>
     </Teleport>
@@ -214,38 +476,217 @@
 
 <script setup>
 useHead({
-  link: [
-    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap' }
-  ]
+  title: 'Riwayat Penjualan - POS Kasir'
 })
 
-// --- Data Fetching ---
-const { data: response, pending, error: fetchError, refresh: refreshTransactions } = await useFetch('/api/transactions')
-const transactions = computed(() => response.value?.data || [])
+// --- Token & Cookie Auth ---
+const token = useCookie('auth_token')
 
-// Summary Ringkasan Total Penjualan
-const summary = computed(() => {
-  const totalAmount = transactions.value
-    .filter(t => t.status === 'SUCCESS')
-    .reduce((acc, curr) => acc + (curr.totalAmount || 0), 0)
-  return { totalAmount }
-})
+// --- Pagination & filter state ---
+const page = ref(1)
+const pageSize = ref(20)
+const pageSizeOptions = [10, 20, 50, 100]
 
-// --- Filter State ---
-const searchQuery = ref('')
+const searchInput = ref('')
+const debouncedSearch = ref('')
 const selectedStatus = ref('')
 const selectedPayment = ref('')
 
-const filteredTransactions = computed(() => {
-  return transactions.value.filter(trx => {
-    const matchQuery = trx.invoiceNo.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-                       (trx.customerName && trx.customerName.toLowerCase().includes(searchQuery.value.toLowerCase()))
-    const matchStatus = !selectedStatus.value || trx.status === selectedStatus.value
-    const matchPayment = !selectedPayment.value || trx.paymentMethod === selectedPayment.value
+let searchTimer = null
+watch(searchInput, (val) => {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    debouncedSearch.value = val.trim()
+  }, 350)
+})
 
-    return matchQuery && matchStatus && matchPayment
+const isFilteringActive = computed(() =>
+  !!debouncedSearch.value || !!selectedStatus.value || !!selectedPayment.value
+)
+
+watch([debouncedSearch, selectedStatus, selectedPayment], () => {
+  page.value = 1
+})
+watch(pageSize, () => {
+  page.value = 1
+})
+
+function clearFilters() {
+  searchInput.value = ''
+  debouncedSearch.value = ''
+  selectedStatus.value = ''
+  selectedPayment.value = ''
+}
+
+// --- Data Fetching dengan Header Authorization ---
+const queryParams = computed(() => ({
+  page: page.value,
+  limit: pageSize.value,
+  search: debouncedSearch.value || undefined,
+  status: selectedStatus.value || undefined,
+  paymentMethod: selectedPayment.value || undefined
+}))
+
+const { data: response, pending, error: fetchError, refresh: refreshTransactions } = await useFetch(
+  '/api/transactions',
+  {
+    key: 'transactions-list',
+    query: queryParams,
+    headers: token.value ? { Authorization: `Bearer ${token.value}` } : {}
+  }
+)
+
+const rawTransactions = computed(() => response.value?.data || [])
+
+// Multi-field Client-Side Search Fallback (Memastikan jika backend tidak mendukung pencarian fleksibel)
+const filteredTransactions = computed(() => {
+  const query = debouncedSearch.value.toLowerCase()
+  if (!query) return rawTransactions.value
+
+  return rawTransactions.value.filter((trx) => {
+    const invoiceStr = String(trx.invoiceNo || trx.id || '').toLowerCase()
+    const customerStr = String(trx.customerName || 'pelanggan umum').toLowerCase()
+    const cashierStr = String(trx.cashier?.name || trx.cashierName || '').toLowerCase()
+    const paymentStr = String(trx.paymentMethod || '').toLowerCase()
+
+    return (
+      invoiceStr.includes(query) ||
+      customerStr.includes(query) ||
+      cashierStr.includes(query) ||
+      paymentStr.includes(query)
+    )
   })
+})
+
+const transactions = computed(() => filteredTransactions.value)
+const hasData = computed(() => transactions.value.length > 0)
+
+const metaData = computed(() => response.value?.meta || {})
+const totalItems = computed(() =>
+  metaData.value.total ?? metaData.value.totalItems ?? response.value?.total ?? transactions.value.length
+)
+const totalPages = computed(() =>
+  Math.max(1, metaData.value.totalPages ?? metaData.value.last_page ?? Math.ceil(totalItems.value / pageSize.value))
+)
+
+const noDataAtAll = computed(() => !pending.value && totalItems.value === 0 && !isFilteringActive.value)
+
+const rangeStart = computed(() => (totalItems.value === 0 ? 0 : (page.value - 1) * pageSize.value + 1))
+const rangeEnd = computed(() => Math.min(page.value * pageSize.value, totalItems.value))
+
+const skeletonCount = computed(() => Math.min(pageSize.value, 10))
+
+function goToPage(target) {
+  const clamped = Math.min(Math.max(1, target), totalPages.value)
+  if (clamped !== page.value) page.value = clamped
+}
+
+const pageWindow = computed(() => {
+  const total = totalPages.value
+  const current = page.value
+  const delta = 1
+  const range = []
+  const withDots = []
+  let last
+
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+      range.push(i)
+    }
+  }
+  range.forEach((i) => {
+    if (last) {
+      if (i - last === 2) withDots.push(last + 1)
+      else if (i - last > 2) withDots.push('...')
+    }
+    withDots.push(i)
+    last = i
+  })
+  return withDots
+})
+
+// --- Deteksi & Highlight Pesanan Baru ---
+const hasInitialized = ref(false)
+const newOrderMap = reactive({})
+const newOrderCount = ref(0)
+const showNewOrderBanner = ref(false)
+let knownIds = new Set()
+let pollTimer = null
+
+function isNew(id) {
+  return !!newOrderMap[id]
+}
+
+function markAsNew(id) {
+  newOrderMap[id] = true
+  setTimeout(() => {
+    delete newOrderMap[id]
+  }, 12000)
+}
+
+function dismissNewOrderBanner() {
+  showNewOrderBanner.value = false
+  newOrderCount.value = 0
+}
+
+function handleNewOrderBannerClick() {
+  if (page.value > 1) {
+    clearFilters()
+    goToPage(1)
+  }
+  dismissNewOrderBanner()
+}
+
+watch(transactions, (list) => {
+  const onFirstPageUnfiltered = page.value === 1 && !isFilteringActive.value
+  const currentIds = list.map(t => t.id)
+
+  if (!hasInitialized.value) {
+    if (onFirstPageUnfiltered) knownIds = new Set(currentIds)
+    hasInitialized.value = true
+    return
+  }
+
+  if (!onFirstPageUnfiltered) return
+
+  const freshIds = currentIds.filter(id => !knownIds.has(id))
+  if (freshIds.length > 0) {
+    freshIds.forEach(markAsNew)
+    newOrderCount.value += freshIds.length
+    showNewOrderBanner.value = true
+  }
+  knownIds = new Set(currentIds)
+}, { immediate: true })
+
+function startPolling() {
+  if (pollTimer) return
+  pollTimer = setInterval(() => {
+    refreshTransactions()
+  }, 8000)
+}
+function stopPolling() {
+  clearInterval(pollTimer)
+  pollTimer = null
+}
+
+onMounted(startPolling)
+onUnmounted(stopPolling)
+onActivated(() => {
+  refreshTransactions()
+  startPolling()
+})
+onDeactivated(stopPolling)
+
+// --- Ringkasan Statistik ---
+const summary = computed(() => {
+  if (response.value?.summary) {
+    return { ...response.value.summary, scopedToPage: false }
+  }
+  const successTrx = transactions.value.filter(t => t.status === 'SUCCESS')
+  const totalAmount = successTrx.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0)
+  const successCount = successTrx.length
+  const average = successCount > 0 ? Math.round(totalAmount / successCount) : 0
+  return { totalAmount, successCount, average, scopedToPage: true }
 })
 
 // --- Detail Modal State ---
@@ -254,17 +695,89 @@ const selectedTrx = ref(null)
 function openDetailModal(trx) {
   selectedTrx.value = trx
 }
-
 function closeDetailModal() {
   selectedTrx.value = null
 }
 
-function printReceipt(trx) {
-  alert(`Mencetak struk untuk transaksi #${trx.invoiceNo}...`)
-  // Di aplikasi nyata, fungsi ini memanggil window.print() atau thermal printer API
+// --- Alert / Toast State ---
+const alertMessage = ref('')
+const alertType = ref('success') // 'success' | 'error'
+const showAlert = ref(false)
+
+function triggerAlert(msg, type = 'success') {
+  alertMessage.value = msg
+  alertType.value = type
+  showAlert.value = true
+  setTimeout(() => {
+    showAlert.value = false
+  }, 3000)
 }
 
-// --- Helper Formatter ---
+// --- Hapus Transaksi ---
+const trxToDelete = ref(null)
+const isDeleting = ref(false)
+
+function confirmDelete(trx) {
+  trxToDelete.value = trx
+}
+
+async function deleteTransaction() {
+  if (!trxToDelete.value) return
+  isDeleting.value = true
+
+  const idToDelete = trxToDelete.value.id
+
+  try {
+    await $fetch(`/api/transactions/${idToDelete}`, {
+      method: 'DELETE',
+      headers: token.value ? { Authorization: `Bearer ${token.value}` } : {}
+    })
+
+    trxToDelete.value = null
+    triggerAlert('Riwayat transaksi berhasil dihapus!', 'success')
+
+    if (transactions.value.length === 1 && page.value > 1) {
+      page.value -= 1
+    } else {
+      await clearNuxtData('transactions-list')
+      await refreshTransactions()
+    }
+  } catch (err) {
+    triggerAlert(err?.data?.statusMessage || 'Gagal menghapus transaksi.', 'error')
+  } finally {
+    isDeleting.value = false
+  }
+}
+
+// --- Formatters & Item Helpers ---
+function formatInvoiceNo(id) {
+  if (!id) return '-'
+  return String(id).padStart(6, '0')
+}
+
+function getItemList(trx) {
+  if (!trx) return []
+  return trx.orderItems || trx.items || []
+}
+
+function getItemName(item) {
+  return item.productName || item.product?.name || 'Produk'
+}
+
+function getItemQty(item) {
+  return Number(item.quantity ?? item.qty) || 0
+}
+
+function calculateSubtotal(trx) {
+  if (trx.subtotal !== undefined && trx.subtotal !== null) {
+    return Number(trx.subtotal)
+  }
+  const items = getItemList(trx)
+  return items.reduce((sum, item) => {
+    return sum + (getItemQty(item) * Number(item.price || 0))
+  }, 0)
+}
+
 function formatRupiah(amount) {
   if (!amount) return 'Rp 0'
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount)
@@ -278,20 +791,13 @@ function formatDate(dateString) {
     month: 'short',
     year: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    second: '2-digit'
   }).format(date)
 }
 </script>
 
 <style scoped>
-.display {
-  font-family: 'Space Grotesk', sans-serif;
-}
-
-.mono {
-  font-family: 'IBM Plex Mono', monospace;
-}
-
 .label-xs {
   font-size: 0.66rem;
   font-weight: 500;
@@ -305,6 +811,170 @@ function formatDate(dateString) {
   border: 1.5px solid rgba(43, 27, 18, 0.12);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
   position: relative;
+}
+
+.stat-box {
+  background: #f4eee3;
+  border: 1px solid rgba(43, 27, 18, 0.08);
+  border-radius: 5px;
+  padding: 0.6rem 0.5rem;
+  text-align: center;
+}
+
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #4a7c4a;
+  box-shadow: 0 0 0 3px rgba(74, 124, 74, 0.18);
+  flex-shrink: 0;
+}
+
+.live-dot--syncing {
+  background: #b8763c;
+  box-shadow: 0 0 0 3px rgba(184, 118, 60, 0.18);
+  animation: dot-pulse 1s ease-in-out infinite;
+}
+
+@keyframes dot-pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.banner-new {
+  background: #fbf0e2;
+  border-color: rgba(184, 118, 60, 0.35);
+  color: #7a4a1f;
+  cursor: pointer;
+}
+
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #b8763c;
+  display: inline-block;
+  animation: dot-pulse 1s ease-in-out infinite;
+}
+
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+  transition: all 0.25s ease;
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.row-new {
+  background: rgba(184, 118, 60, 0.1);
+  animation: row-glow 2.2s ease-in-out 3;
+}
+
+@keyframes row-glow {
+
+  0%,
+  100% {
+    background-color: rgba(184, 118, 60, 0.12);
+  }
+
+  50% {
+    background-color: rgba(184, 118, 60, 0.04);
+  }
+}
+
+.badge {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.badge-success {
+  background: #e5efe1;
+  color: #3f6b3f;
+}
+
+.badge-danger {
+  background: #f5e2de;
+  color: #9b3a2e;
+}
+
+.badge-new {
+  background: #b8763c;
+  color: #faf6ee;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #efe7d8 25%, #f7f1e6 37%, #efe7d8 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+.page-btn {
+  padding: 0.4rem 0.7rem;
+  border-radius: 4px;
+  border: 1px solid rgba(43, 27, 18, 0.15);
+  background: #f4eee3;
+  color: #2b1b12;
+  transition: background 0.12s ease, opacity 0.12s ease;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #ecdfc9;
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-btn--num {
+  min-width: 2.1rem;
+  text-align: center;
+}
+
+.page-btn--active {
+  background: #2b1b12;
+  color: #faf6ee;
+  border-color: #2b1b12;
+}
+
+.receipt-card::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -9px;
+  height: 18px;
+  background:
+    linear-gradient(135deg, #faf6ee 25%, transparent 25%) 0 0,
+    linear-gradient(225deg, #faf6ee 25%, transparent 25%) 0 0;
+  background-size: 18px 18px;
+  background-repeat: repeat-x;
+  filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.14));
 }
 
 .btn-stamp {

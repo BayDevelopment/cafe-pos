@@ -1,6 +1,5 @@
-<!-- app/pages/kasir/order/[id].vue -->
 <template>
-  <div class="p-4 md:p-10 max-w-2xl mx-auto space-y-6 font-sans">
+  <div class="p-4 md:p-10 max-w-2xl mx-auto space-y-6 font-sans print:p-0 print:m-0 print:max-w-none">
 
     <!-- TOMBOL AKSI / NAVIGASI (HILANG SAAT DICETAK) -->
     <div class="flex flex-wrap items-center justify-between gap-3 print:hidden">
@@ -29,71 +28,79 @@
     </div>
 
     <!-- LOADING STATE -->
-    <div v-if="pending" class="ticket-card p-10 text-center mono text-xs text-[#8A7A68]">
+    <div v-if="pending" class="ticket-card p-10 text-center mono text-xs text-[#8A7A68] print:hidden">
       MEMUAT DETAIL TRANSAKSI...
     </div>
 
     <!-- ERROR STATE -->
-    <div v-else-if="fetchError || !order" class="ticket-card p-10 text-center space-y-3">
-      <p class="mono text-xs text-[#9b3a2e]">Transaksi tidak ditemukan atau gagal memuat data.</p>
+    <div v-else-if="fetchError || !order" class="ticket-card p-10 text-center space-y-3 print:hidden">
+      <p class="mono text-xs text-[#9b3a2e]">
+        {{ fetchError?.data?.statusMessage || 'Transaksi tidak ditemukan atau gagal memuat data.' }}
+      </p>
       <NuxtLink to="/kasir/pos" class="btn-stamp mono inline-flex px-4 py-2 text-xs">
         KEMBALI KE POS
       </NuxtLink>
     </div>
 
     <!-- TAMPILAN STRUK PEMBAYARAN (PRINTABLE AREA) -->
-    <div v-else class="ticket-card p-6 md:p-8 space-y-6 print:shadow-none print:border-none print:p-0">
+    <div v-else class="receipt-body ticket-card p-6 md:p-8 space-y-5 print:p-0 print:shadow-none print:border-none">
       
       <!-- HEADER STRUK -->
-      <div class="text-center space-y-1 border-b border-dashed border-[#2b1b12]/20 pb-4">
-        <span class="mono label-xs px-2 py-0.5 rounded bg-[#2b1b12] text-[#faf6ee] inline-block mb-1">STRUK PEMBAYARAN</span>
-        <h1 class="display text-2xl font-bold text-[#2b1b12]">COFFEE SHOP POS</h1>
-        <p class="mono text-[0.7rem] text-[#8A7A68]">Jl. Kopi No. 12, Banten • Telp: 0812-3456-7890</p>
+      <div class="text-center space-y-1 border-b border-dashed border-[#2b1b12]/30 pb-3">
+        <h1 class="display text-xl font-bold text-[#2b1b12] uppercase tracking-wide">COFFEE SHOP POS</h1>
+        <p class="mono text-[0.68rem] text-[#8A7A68] print:text-black">Jl. Kopi No. 12, Banten</p>
+        <p class="mono text-[0.68rem] text-[#8A7A68] print:text-black">Telp: 0812-3456-7890</p>
       </div>
 
       <!-- METADATA TRANSAKSI -->
-      <div class="grid grid-cols-2 gap-2 mono text-xs border-b border-dashed border-[#2b1b12]/20 pb-4">
-        <div>
-          <p class="text-[#8A7A68]">ID Transaksi:</p>
-          <p class="font-bold text-[#2b1b12]">#{{ order.id }}</p>
+      <div class="mono text-[0.7rem] border-b border-dashed border-[#2b1b12]/30 pb-3 space-y-1">
+        <div class="flex justify-between">
+          <span class="text-[#8A7A68] print:text-black">No. Struk:</span>
+          <span class="font-bold text-[#2b1b12]">#{{ formatInvoiceNo(order.id) }}</span>
         </div>
-        <div class="text-right">
-          <p class="text-[#8A7A68]">Tanggal & Waktu:</p>
-          <p class="font-bold text-[#2b1b12]">{{ formatDate(order.createdAt) }}</p>
+        <div class="flex justify-between">
+          <span class="text-[#8A7A68] print:text-black">Waktu:</span>
+          <span class="font-bold text-[#2b1b12]">{{ formatDate(order.createdAt) }}</span>
         </div>
-        <div>
-          <p class="text-[#8A7A68]">Kasir:</p>
-          <p class="font-bold text-[#2b1b12]">{{ order.cashier?.name || 'Kasir' }}</p>
+
+        <!-- BARIS KASIR / USER -->
+        <div class="flex justify-between">
+          <span class="text-[#8A7A68] print:text-black">Kasir:</span>
+          <span class="font-bold text-[#2b1b12]">{{ order.cashier?.name || 'Kasir' }}</span>
         </div>
-        <div class="text-right">
-          <p class="text-[#8A7A68]">Metode Bayar:</p>
-          <p class="font-bold text-[#2b1b12]">{{ order.paymentMethod }}</p>
+
+        <!-- BARIS NAMA PELANGGAN / CUSTOMER -->
+        <div class="flex justify-between">
+          <span class="text-[#8A7A68] print:text-black">Pelanggan:</span>
+          <span class="font-bold text-[#2b1b12] print:text-black">{{ order.customerName || 'Pelanggan Umum' }}</span>
+        </div>
+
+        <div class="flex justify-between">
+          <span class="text-[#8A7A68] print:text-black">Bayar via:</span>
+          <span class="font-bold text-[#2b1b12] uppercase">{{ order.paymentMethod }}</span>
         </div>
       </div>
 
-      <!-- RINCIAN ORDER ITEM (MODEL OrderItem) -->
-      <div class="space-y-3">
-        <div class="flex justify-between items-center mono label-xs text-[#8A7A68] border-b border-[#2b1b12]/10 pb-2">
+      <!-- RINCIAN ORDER ITEM -->
+      <div class="space-y-2">
+        <div class="flex justify-between items-center mono text-[0.68rem] text-[#8A7A68] print:text-black border-b border-[#2b1b12]/20 pb-1 font-bold">
           <span>ITEM</span>
-          <div class="flex gap-4">
-            <span>QTY</span>
-            <span class="w-20 text-right">TOTAL</span>
-          </div>
+          <span>TOTAL</span>
         </div>
 
-        <div class="space-y-2.5">
+        <div class="space-y-2">
           <div 
             v-for="item in order.orderItems" 
             :key="item.id"
-            class="flex justify-between items-start text-xs font-mono"
+            class="mono text-xs"
           >
-            <div class="pr-2 flex-1">
-              <p class="font-bold text-[#2b1b12]">{{ item.product?.name || 'Produk' }}</p>
-              <p class="text-[0.68rem] text-[#8A7A68]">@ {{ formatCurrency(item.price) }}</p>
-            </div>
-            <div class="flex gap-4 items-start">
-              <span class="text-[#2b1b12] font-bold">x{{ item.quantity }}</span>
-              <span class="w-20 text-right font-bold text-[#2b1b12]">
+            <!-- Nama Produk -->
+            <p class="font-bold text-[#2b1b12] leading-tight">{{ item.product?.name || 'Produk' }}</p>
+            
+            <!-- Rincian Qty x Harga & Subtotal -->
+            <div class="flex justify-between items-center text-[0.68rem] text-[#8A7A68] print:text-black mt-0.5">
+              <span>{{ item.quantity }}x @{{ formatCurrency(item.price) }}</span>
+              <span class="font-bold text-[#2b1b12]">
                 {{ formatCurrency(Number(item.price) * item.quantity) }}
               </span>
             </div>
@@ -102,31 +109,31 @@
       </div>
 
       <!-- TOTAL & PEMBAYARAN -->
-      <div class="border-t border-dashed border-[#2b1b12]/20 pt-4 space-y-2 font-mono text-xs">
-        <div v-if="Number(order.discount) > 0" class="flex justify-between text-[#8A7A68]">
+      <div class="border-t border-dashed border-[#2b1b12]/30 pt-3 space-y-1.5 mono text-xs">
+        <div v-if="Number(order.discount) > 0" class="flex justify-between text-[#8A7A68] print:text-black">
           <span>Diskon</span>
           <span>- {{ formatCurrency(order.discount) }}</span>
         </div>
-        <div class="flex justify-between items-center text-sm font-bold text-[#2b1b12] pt-1 border-t border-[#2b1b12]/10">
-          <span>TOTAL BAYAR</span>
-          <span class="display text-lg text-[#b8763c]">{{ formatCurrency(order.totalAmount) }}</span>
+        <div class="flex justify-between items-center text-sm font-bold text-[#2b1b12] pt-1 border-t border-[#2b1b12]/20">
+          <span>TOTAL</span>
+          <span class="display text-base font-bold text-[#2b1b12] print:text-black">{{ formatCurrency(order.totalAmount) }}</span>
         </div>
-        <div class="flex justify-between text-[0.7rem] text-[#8A7A68] pt-1">
-          <span>Status Pembayaran</span>
-          <span class="font-bold text-[#2f7a46]">{{ order.status }}</span>
+        <div v-if="order.status" class="flex justify-between text-[0.68rem] text-[#8A7A68] print:text-black pt-1">
+          <span>Status</span>
+          <span class="font-bold text-[#2b1b12] print:text-black">{{ order.status }}</span>
         </div>
       </div>
 
-      <!-- CATATAN TRANSAKSI (JIKA ADA) -->
-      <div v-if="order.note" class="bg-[#f4eee3] p-3 rounded text-xs mono text-[#8A7A68] border border-[#2b1b12]/10">
+      <!-- CATATAN TRANSAKSI -->
+      <div v-if="order.note" class="bg-[#f4eee3] print:bg-transparent p-2 rounded text-[0.68rem] mono text-[#8A7A68] print:text-black border border-[#2b1b12]/20">
         <p class="font-bold text-[#2b1b12] mb-0.5">Catatan:</p>
         <p>{{ order.note }}</p>
       </div>
 
       <!-- FOOTER STRUK -->
-      <div class="text-center pt-4 border-t border-dashed border-[#2b1b12]/20 space-y-1">
-        <p class="display text-xs font-bold text-[#2b1b12]">Terima Kasih Atas Kunjungan Anda!</p>
-        <p class="mono text-[0.65rem] text-[#8A7A68]">Simpan struk ini sebagai bukti pembayaran yang sah.</p>
+      <div class="text-center pt-3 border-t border-dashed border-[#2b1b12]/30 space-y-1">
+        <p class="display text-xs font-bold text-[#2b1b12]">Terima Kasih!</p>
+        <p class="mono text-[0.6rem] text-[#8A7A68] print:text-black">Simpan struk ini sebagai bukti pembayaran.</p>
       </div>
 
     </div>
@@ -144,13 +151,34 @@ useHead({
 })
 
 const route = useRoute()
+const token = useCookie('auth_token')
 
-// Fetch detail transaksi berdasarkan ID dari URL (/kasir/order/1)
-const { data: response, pending, error: fetchError } = await useFetch(`/api/orders/${route.params.id}`)
+const { data: response, pending, error: fetchError } = await useFetch(`/api/order/${route.params.id}`, {
+  headers: token.value ? { Authorization: `Bearer ${token.value}` } : {}
+})
+
 const order = computed(() => response.value?.data || null)
+
+// Otomatis cetak jika dibuka di dalam Iframe dan data order SUDAH siap
+watch(order, (newOrder) => {
+  if (newOrder && process.client) {
+    if (window.self !== window.top) {
+      nextTick(() => {
+        setTimeout(() => {
+          window.print()
+        }, 300)
+      })
+    }
+  }
+}, { immediate: true })
 
 function formatCurrency(value) {
   return 'Rp ' + Number(value || 0).toLocaleString('id-ID')
+}
+
+function formatInvoiceNo(id) {
+  if (!id) return '-'
+  return String(id).padStart(6, '0')
 }
 
 function formatDate(dateString) {
@@ -161,7 +189,8 @@ function formatDate(dateString) {
     month: 'short',
     year: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    second: '2-digit'
   })
 }
 
@@ -177,13 +206,6 @@ function printReceipt() {
 
 .mono {
   font-family: 'IBM Plex Mono', monospace;
-}
-
-.label-xs {
-  font-size: 0.66rem;
-  font-weight: 500;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
 }
 
 .ticket-card {
@@ -225,15 +247,36 @@ function printReceipt() {
   border-color: #2b1b12;
 }
 
-/* CSS Khusus Mode Cetak (Thermal Paper Friendly) */
+/* =========================================================
+   PENGATURAN SPESIFIK PRINTER THERMAL KAFE (58mm / 80mm)
+   ========================================================= */
 @media print {
-  body {
-    background: white !important;
+  @page {
+    size: 58mm auto; /* Ubah ke 80mm auto jika menggunakan kertas 80mm */
+    margin: 0;
   }
-  .ticket-card {
-    box-shadow: none !important;
+
+  html, body {
+    width: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .receipt-body {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 8px 4px !important;
+    margin: 0 !important;
     border: none !important;
+    box-shadow: none !important;
     background: transparent !important;
+  }
+
+  * {
+    color: #000000 !important;
+    text-shadow: none !important;
   }
 }
 </style>

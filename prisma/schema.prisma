@@ -134,6 +134,7 @@ model Product {
 
 model Order {
   id            Int           @id @default(autoincrement())
+  customerName String?       
   totalAmount   Decimal       @db.Decimal(10, 2)
   discount      Decimal       @default(0) @db.Decimal(10, 2)
   note          String?

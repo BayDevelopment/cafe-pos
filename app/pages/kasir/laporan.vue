@@ -1,26 +1,26 @@
 <!-- app/pages/kasir/laporan.vue -->
 <template>
-  <div class="p-6 md:p-10 max-w-6xl mx-auto space-y-8 font-sans">
+  <div class="p-4 sm:p-6 md:p-10 max-w-6xl mx-auto space-y-6 md:space-y-8 font-sans">
 
     <!-- HEADER HALAMAN -->
     <header class="ticket-card p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div>
-        <div class="flex items-center gap-2 mb-1">
-          <span class="mono label-xs px-2 py-0.5 rounded bg-[#2b1b12] text-[#faf6ee]">ANALISIS</span>
+        <div class="flex items-center gap-2 mb-1.5">
+          <span class="mono label-xs px-2 py-0.5 rounded bg-[#2b1b12] text-[#faf6ee] font-semibold">ANALISIS</span>
           <span class="mono label-xs text-[#8A7A68]">LAPORAN PENJUALAN</span>
         </div>
-        <h1 class="display text-2xl text-[#2b1b12] font-bold">Laporan Keuangan & Omset</h1>
-        <p class="mono text-xs text-[#8A7A68] mt-0.5">Analisis tren penjualan, pendapatan, dan statistik menu favorit.</p>
+        <h1 class="display text-2xl md:text-3xl text-[#2b1b12] font-bold tracking-tight">Laporan Keuangan & Omset</h1>
+        <p class="mono text-xs text-[#8A7A68] mt-1">Analisis tren penjualan, pendapatan, dan statistik menu favorit.</p>
       </div>
 
       <!-- ACTION BUTTONS -->
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 w-full md:w-auto">
         <button 
           type="button" 
-          class="btn-stamp mono px-4 py-2.5 text-xs"
+          class="btn-stamp mono w-full md:w-auto px-5 py-2.5 text-xs flex items-center justify-center gap-2"
           @click="exportReport"
         >
-          📥 EXPORT CSV / PRINT
+          <span>📥</span> EXPORT CSV / PRINT
         </button>
       </div>
     </header>
@@ -35,10 +35,10 @@
             v-for="preset in presets" 
             :key="preset.value"
             type="button"
-            class="mono text-xs px-3 py-1.5 rounded transition-all border"
+            class="mono text-xs px-3.5 py-1.5 rounded transition-all border font-medium"
             :class="selectedPreset === preset.value 
-              ? 'bg-[#2b1b12] text-[#faf6ee] border-[#2b1b12] font-semibold' 
-              : 'bg-[#f4eee3] text-[#8A7A68] border-[#2b1b12]/10 hover:border-[#b8763c] hover:text-[#2b1b12]'"
+              ? 'bg-[#2b1b12] text-[#faf6ee] border-[#2b1b12] shadow-sm font-semibold' 
+              : 'bg-[#f4eee3] text-[#8A7A68] border-[#2b1b12]/15 hover:border-[#b8763c] hover:text-[#2b1b12]'"
             @click="applyPreset(preset.value)"
           >
             {{ preset.label }}
@@ -46,15 +46,15 @@
         </div>
 
         <!-- INPUT CUSTOM RANGE (DATE PICKER) -->
-        <div class="flex items-center gap-2 bg-[#f4eee3] p-2 rounded border border-[#2b1b12]/20 text-xs mono">
-          <span class="text-[#8A7A68]">📅 Periode:</span>
+        <div class="flex items-center gap-2 bg-[#f4eee3] p-2 rounded-md border border-[#2b1b12]/20 text-xs mono">
+          <span class="text-[#8A7A68] font-medium">📅 Periode:</span>
           <input 
             v-model="startDate" 
             type="date" 
             class="bg-transparent text-[#2b1b12] font-semibold focus:outline-none cursor-pointer"
             @change="selectedPreset = 'custom'"
           />
-          <span class="text-[#8A7A68]">-</span>
+          <span class="text-[#8A7A68] font-bold">-</span>
           <input 
             v-model="endDate" 
             type="date" 
@@ -67,16 +67,16 @@
     </section>
 
     <!-- LOADING STATE -->
-    <div v-if="pending" class="ticket-card p-10 text-center mono text-xs text-[#8A7A68]">
-      MENGHITUNG DAN MEMUAT LAPORAN...
+    <div v-if="pending" class="ticket-card p-12 text-center mono text-xs text-[#8A7A68] tracking-widest animate-pulse">
+      ⏳ MENGHITUNG DAN MEMUAT LAPORAN...
     </div>
 
     <!-- ERROR STATE -->
-    <div v-else-if="fetchError" class="ticket-card p-10 text-center space-y-3">
-      <p class="mono text-xs text-[#9b3a2e]">Gagal memuat laporan data. Periksa koneksi atau coba lagi.</p>
+    <div v-else-if="fetchError" class="ticket-card p-10 text-center space-y-4">
+      <p class="mono text-xs text-[#9b3a2e] font-semibold">Gagal memuat data laporan. Periksa koneksi jaringan Anda.</p>
       <button 
         type="button" 
-        class="btn-stamp mono inline-flex px-4 py-2 text-xs"
+        class="btn-stamp mono inline-flex px-5 py-2 text-xs"
         @click="refreshReport"
       >
         COBA LAGI
@@ -90,7 +90,10 @@
         <div class="ticket-card p-5 space-y-1">
           <p class="mono label-xs text-[#8A7A68]">Total Pendapatan</p>
           <p class="display font-bold text-2xl text-[#2b1b12]">{{ formatRupiah(summaryMetrics.totalRevenue) }}</p>
-          <p class="mono text-[0.7rem] text-emerald-700 font-medium">Dari {{ summaryMetrics.totalOrders }} Transaksi</p>
+          <p class="mono text-[0.7rem] text-emerald-800 font-semibold flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-600 inline-block"></span>
+            Dari {{ summaryMetrics.totalOrders }} Transaksi
+          </p>
         </div>
 
         <div class="ticket-card p-5 space-y-1">
@@ -106,7 +109,7 @@
         </div>
 
         <div class="ticket-card p-5 space-y-1">
-          <p class="mono label-xs text-[#8A7A68]">Transaksi Batal/Void</p>
+          <p class="mono label-xs text-[#8A7A68]">Transaksi Batal / Void</p>
           <p class="display font-bold text-2xl text-[#9b3a2e]">{{ summaryMetrics.cancelledOrders }}</p>
           <p class="mono text-[0.7rem] text-[#9b3a2e]">Kerugian: {{ formatRupiah(summaryMetrics.cancelledAmount) }}</p>
         </div>
@@ -118,16 +121,19 @@
         
         <!-- METODE PEMBAYARAN -->
         <div class="ticket-card p-6 space-y-4 lg:col-span-1">
-          <h2 class="display text-lg text-[#2b1b12] font-bold">Metode Pembayaran</h2>
-          <div class="space-y-3">
-            <div v-for="(amount, method) in paymentBreakdown" :key="method" class="space-y-1">
+          <div class="border-b border-[#2b1b12]/10 pb-3">
+            <h2 class="display text-lg text-[#2b1b12] font-bold">Metode Pembayaran</h2>
+            <p class="mono text-[0.7rem] text-[#8A7A68]">Proporsi pembagian pendapatan</p>
+          </div>
+          <div class="space-y-4">
+            <div v-for="(amount, method) in paymentBreakdown" :key="method" class="space-y-1.5">
               <div class="flex justify-between text-xs mono">
-                <span class="font-semibold text-[#2b1b12]">{{ method }}</span>
-                <span class="text-[#8A7A68]">{{ formatRupiah(amount) }}</span>
+                <span class="font-bold text-[#2b1b12]">{{ method }}</span>
+                <span class="text-[#8A7A68] font-medium">{{ formatRupiah(amount) }}</span>
               </div>
-              <div class="w-full bg-[#f4eee3] h-2 rounded-full overflow-hidden">
+              <div class="w-full bg-[#f4eee3] h-2.5 rounded-full overflow-hidden border border-[#2b1b12]/10">
                 <div 
-                  class="bg-[#b8763c] h-full rounded-full" 
+                  class="bg-[#b8763c] h-full rounded-full transition-all duration-500" 
                   :style="{ width: getPercentage(amount, summaryMetrics.totalRevenue) + '%' }"
                 ></div>
               </div>
@@ -137,21 +143,30 @@
 
         <!-- MENU POPULER (TOP PRODUCTS) -->
         <div class="ticket-card p-6 space-y-4 lg:col-span-2">
-          <h2 class="display text-lg text-[#2b1b12] font-bold">5 Menu Terlaris Periode Ini</h2>
+          <div class="border-b border-[#2b1b12]/10 pb-3">
+            <h2 class="display text-lg text-[#2b1b12] font-bold">5 Menu Terlaris Periode Ini</h2>
+            <p class="mono text-[0.7rem] text-[#8A7A68]">Berdasarkan kuantitas terjual</p>
+          </div>
           <div class="overflow-x-auto">
             <table class="w-full text-xs text-left mono">
               <thead>
-                <tr class="border-b border-[#2b1b12]/10 text-[#8A7A68] pb-2">
-                  <th class="pb-2">Nama Menu</th>
-                  <th class="pb-2 text-center">Terjual</th>
-                  <th class="pb-2 text-right">Total Subtotal</th>
+                <tr class="border-b border-[#2b1b12]/10 text-[#8A7A68] uppercase tracking-wider">
+                  <th class="pb-2.5 font-medium">Nama Menu</th>
+                  <th class="pb-2.5 text-center font-medium">Terjual</th>
+                  <th class="pb-2.5 text-right font-medium">Total Subtotal</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-[#2b1b12]/5">
-                <tr v-for="(item, idx) in topProducts" :key="idx" class="hover:bg-[#f4eee3]/50">
-                  <td class="py-2.5 font-bold text-[#2b1b12] display text-sm">{{ item.name }}</td>
-                  <td class="py-2.5 text-center text-[#b8763c] font-semibold">{{ item.qty }} pcs</td>
-                  <td class="py-2.5 text-right font-bold text-[#2b1b12]">{{ formatRupiah(item.revenue) }}</td>
+              <tbody class="divide-y divide-[#2b1b12]/10">
+                <tr v-for="(item, idx) in topProducts" :key="idx" class="hover:bg-[#f4eee3]/60 transition-colors">
+                  <td class="py-3 font-bold text-[#2b1b12] display text-sm">
+                    <span class="mono text-xs text-[#8A7A68] mr-2">#{{ idx + 1 }}</span>
+                    {{ item.name }}
+                  </td>
+                  <td class="py-3 text-center text-[#b8763c] font-bold">{{ item.quantity }} pcs</td>
+                  <td class="py-3 text-right font-bold text-[#2b1b12] display">{{ formatRupiah(item.revenue) }}</td>
+                </tr>
+                <tr v-if="topProducts.length === 0">
+                  <td colspan="3" class="py-6 text-center text-[#8A7A68]">Belum ada data produk terjual.</td>
                 </tr>
               </tbody>
             </table>
@@ -161,53 +176,62 @@
       </section>
 
       <!-- TABEL DAFTAR TRANSAKSI PERIODE DIPILIH -->
-      <main class="ticket-card overflow-hidden space-y-4">
-        <div class="p-6 pb-0 flex justify-between items-center">
-          <h2 class="display text-lg text-[#2b1b12] font-bold">Detail Transaksi Per Hari</h2>
-          <p class="mono text-xs text-[#8A7A68]">Menampilkan data {{ filteredReport.length }} transaksi</p>
+      <main class="ticket-card overflow-hidden space-y-0">
+        <div class="p-6 border-b border-[#2b1b12]/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <div>
+            <h2 class="display text-lg text-[#2b1b12] font-bold">Detail Transaksi Per Hari</h2>
+            <p class="mono text-xs text-[#8A7A68]">Menampilkan seluruh transaksi tercatat</p>
+          </div>
+          <span class="mono label-xs px-2.5 py-1 rounded bg-[#2b1b12]/5 text-[#2b1b12] border border-[#2b1b12]/10">
+            TOTAL {{ filteredReport.length }} TRANSAKSI
+          </span>
         </div>
 
         <div class="overflow-x-auto">
           <table class="w-full text-sm text-left">
             <thead>
               <tr class="border-b border-[#2b1b12]/10 bg-[#f4eee3]">
-                <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3">Tanggal & Waktu</th>
-                <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3">Invoice</th>
-                <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3">Pelanggan</th>
-                <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3">Metode</th>
-                <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3">Status</th>
-                <th scope="col" class="mono label-xs text-right text-[#8A7A68] px-5 py-3">Total Nominal</th>
+                <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3.5">Tanggal & Waktu</th>
+                <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3.5">No. Invoice</th>
+                <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3.5">Pelanggan</th>
+                <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3.5">Kasir</th>
+                <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3.5">Metode</th>
+                <th scope="col" class="mono label-xs text-[#8A7A68] px-5 py-3.5">Status</th>
+                <th scope="col" class="mono label-xs text-right text-[#8A7A68] px-5 py-3.5">Total Nominal</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[#2b1b12]/5">
+            <tbody class="divide-y divide-[#2b1b12]/10">
               <tr 
                 v-for="trx in filteredReport" 
                 :key="trx.id"
-                class="hover:bg-[#f4eee3]/50 transition-colors"
+                class="hover:bg-[#f4eee3]/60 transition-colors"
               >
                 <td class="px-5 py-4 mono text-xs text-[#8A7A68]">
                   {{ formatDate(trx.createdAt) }}
                 </td>
-                <td class="px-5 py-4 mono font-bold text-[#2b1b12]">
-                  #{{ trx.invoiceNo }}
+                <td class="px-5 py-4 mono font-bold text-[#2b1b12] text-xs">
+                  #ORD-{{ String(trx.id).padStart(5, '0') }}
                 </td>
-                <td class="px-5 py-4 font-semibold text-[#2b1b12] display">
+                <td class="px-5 py-4 font-bold text-[#2b1b12] display">
                   {{ trx.customerName || 'Pelanggan Anonim' }}
                 </td>
+                <td class="px-5 py-4 mono text-xs text-[#8A7A68]">
+                  {{ trx.cashier?.name || '-' }}
+                </td>
                 <td class="px-5 py-4">
-                  <span class="mono label-xs px-2 py-0.5 rounded bg-[#2b1b12]/5 text-[#2b1b12]">
+                  <span class="mono label-xs px-2.5 py-1 rounded bg-[#2b1b12]/5 text-[#2b1b12] border border-[#2b1b12]/10">
                     {{ trx.paymentMethod }}
                   </span>
                 </td>
                 <td class="px-5 py-4">
                   <span 
-                    class="mono label-xs px-2 py-0.5 rounded"
-                    :class="trx.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'"
+                    class="mono label-xs px-2.5 py-1 rounded font-semibold border"
+                    :class="getStatusClass(trx.status)"
                   >
-                    {{ trx.status === 'SUCCESS' ? 'SELESAI' : 'BATAL' }}
+                    {{ formatStatusLabel(trx.status) }}
                   </span>
                 </td>
-                <td class="px-5 py-4 text-right display font-bold text-[#2b1b12]">
+                <td class="px-5 py-4 text-right display font-bold text-[#2b1b12] text-base">
                   {{ formatRupiah(trx.totalAmount) }}
                 </td>
               </tr>
@@ -215,7 +239,7 @@
           </table>
         </div>
 
-        <div v-if="filteredReport.length === 0" class="p-10 text-center mono text-xs text-[#8A7A68]">
+        <div v-if="filteredReport.length === 0" class="p-12 text-center mono text-xs text-[#8A7A68]">
           Tidak ada data transaksi ditemukan pada rentang tanggal ini.
         </div>
       </main>
@@ -280,20 +304,18 @@ function applyPreset(presetValue) {
   }
 }
 
-// Inisialisasi awal ke 'Hari Ini'
 onMounted(() => {
   applyPreset('today')
 })
 
 // --- API Fetching ---
-// Mengirim query parameter startDate & endDate ke backend
 const { data: response, pending, error: fetchError, refresh: refreshReport } = await useFetch('/api/reports', {
   query: { startDate, endDate }
 })
 
 const reportData = computed(() => response.value?.data || [])
 
-// Filter data secara reaktif di client-side
+// Filter data reaktif berdasarkan kurun waktu
 const filteredReport = computed(() => {
   if (!startDate.value || !endDate.value) return reportData.value
 
@@ -306,23 +328,23 @@ const filteredReport = computed(() => {
   })
 })
 
-// --- Ringkasan Metrics (KPI) ---
+// --- Ringkasan Metrics (KPI) sesuai OrderStatus Enum ---
 const summaryMetrics = computed(() => {
-  const successTrx = filteredReport.value.filter(t => t.status === 'SUCCESS')
-  const cancelledTrx = filteredReport.value.filter(t => t.status === 'CANCELLED')
+  const successTrx = filteredReport.value.filter(t => t.status === 'PAID')
+  const cancelledTrx = filteredReport.value.filter(t => t.status === 'CANCELLED' || t.status === 'REFUNDED')
 
-  const totalRevenue = successTrx.reduce((sum, t) => sum + (t.totalAmount || 0), 0)
+  const totalRevenue = successTrx.reduce((sum, t) => sum + Number(t.totalAmount || 0), 0)
   const totalOrders = successTrx.length
   const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
 
   let totalItemsSold = 0
   successTrx.forEach(t => {
-    if (t.items) {
-      totalItemsSold += t.items.reduce((acc, item) => acc + item.qty, 0)
+    if (t.orderItems) {
+      totalItemsSold += t.orderItems.reduce((acc, item) => acc + item.quantity, 0)
     }
   })
 
-  const cancelledAmount = cancelledTrx.reduce((sum, t) => sum + (t.totalAmount || 0), 0)
+  const cancelledAmount = cancelledTrx.reduce((sum, t) => sum + Number(t.totalAmount || 0), 0)
 
   return {
     totalRevenue,
@@ -334,37 +356,63 @@ const summaryMetrics = computed(() => {
   }
 })
 
-// --- Breakdown Metode Pembayaran ---
+// --- Breakdown Metode Pembayaran sesuai PaymentMethod Enum ---
 const paymentBreakdown = computed(() => {
-  const breakdown = { QRIS: 0, CASH: 0, DEBIT: 0 }
+  const breakdown = { CASH: 0, QRIS: 0, DEBIT: 0, KREDIT: 0, TRANSFER: 0 }
   filteredReport.value.forEach(trx => {
-    if (trx.status === 'SUCCESS' && trx.paymentMethod) {
-      breakdown[trx.paymentMethod] = (breakdown[trx.paymentMethod] || 0) + trx.totalAmount
+    if (trx.status === 'PAID' && trx.paymentMethod) {
+      breakdown[trx.paymentMethod] = (breakdown[trx.paymentMethod] || 0) + Number(trx.totalAmount || 0)
     }
   })
   return breakdown
 })
 
-// --- Menu Terlaris (Top 5 Products) ---
+// --- Menu Terlaris (Top 5 Products) berdasarkan OrderItem & Product ---
 const topProducts = computed(() => {
   const productMap = {}
 
   filteredReport.value.forEach(trx => {
-    if (trx.status === 'SUCCESS' && trx.items) {
-      trx.items.forEach(item => {
-        if (!productMap[item.productName]) {
-          productMap[item.productName] = { name: item.productName, qty: 0, revenue: 0 }
+    if (trx.status === 'PAID' && trx.orderItems) {
+      trx.orderItems.forEach(item => {
+        const productName = item.product?.name || 'Produk Tidak Diketahui'
+        if (!productMap[productName]) {
+          productMap[productName] = { name: productName, quantity: 0, revenue: 0 }
         }
-        productMap[item.productName].qty += item.qty
-        productMap[item.productName].revenue += (item.qty * item.price)
+        productMap[productName].quantity += item.quantity
+        productMap[productName].revenue += (item.quantity * Number(item.price))
       })
     }
   })
 
   return Object.values(productMap)
-    .sort((a, b) => b.qty - a.qty)
+    .sort((a, b) => b.quantity - a.quantity)
     .slice(0, 5)
 })
+
+// --- Helper Tampilan Status ---
+function getStatusClass(status) {
+  switch (status) {
+    case 'PAID':
+      return 'bg-emerald-100/80 text-emerald-900 border-emerald-300'
+    case 'PENDING':
+      return 'bg-amber-100/80 text-amber-900 border-amber-300'
+    case 'CANCELLED':
+    case 'REFUNDED':
+      return 'bg-red-100/80 text-red-900 border-red-300'
+    default:
+      return 'bg-gray-100 text-gray-800 border-gray-300'
+  }
+}
+
+function formatStatusLabel(status) {
+  switch (status) {
+    case 'PAID': return 'LUNAS'
+    case 'PENDING': return 'PENDING'
+    case 'CANCELLED': return 'BATAL'
+    case 'REFUNDED': return 'REFUND'
+    default: return status
+  }
+}
 
 // --- Export Report ---
 function exportReport() {
@@ -378,8 +426,9 @@ function getPercentage(part, total) {
 }
 
 function formatRupiah(amount) {
-  if (!amount) return 'Rp 0'
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount)
+  const num = Number(amount)
+  if (isNaN(num) || num === 0) return 'Rp 0'
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(num)
 }
 
 function formatDate(dateString) {
@@ -396,13 +445,6 @@ function formatDate(dateString) {
 </script>
 
 <style scoped>
-.display {
-  font-family: 'Space Grotesk', sans-serif;
-}
-
-.mono {
-  font-family: 'IBM Plex Mono', monospace;
-}
 
 .label-xs {
   font-size: 0.66rem;
@@ -411,44 +453,49 @@ function formatDate(dateString) {
   text-transform: uppercase;
 }
 
+/* Card Vintage ala Tiket / Receipt Kasir */
 .ticket-card {
   background: #faf6ee;
   border-radius: 6px;
-  border: 1.5px solid rgba(43, 27, 18, 0.12);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  border: 1.5px solid rgba(43, 27, 18, 0.14);
+  box-shadow: 0 10px 25px -5px rgba(43, 27, 18, 0.12), 0 4px 6px -2px rgba(43, 27, 18, 0.05);
   position: relative;
 }
 
+/* Tombol bergaya Stempel */
 .btn-stamp {
   background: #2b1b12;
   color: #faf6ee;
-  font-size: 0.8rem;
   font-weight: 600;
-  letter-spacing: 0.14em;
-  padding: 0.85rem 1rem;
+  letter-spacing: 0.12em;
   border-radius: 4px;
   border: 1.5px solid #2b1b12;
   cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .btn-stamp:hover:not(:disabled) {
   background: #b8763c;
   border-color: #b8763c;
-  transform: rotate(-0.6deg) scale(1.01);
+  transform: rotate(-0.5deg) scale(1.01);
+  box-shadow: 0 4px 12px rgba(184, 118, 60, 0.25);
 }
 
-/* CSS Media Print untuk mencetak halaman dengan rapi */
+.btn-stamp:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Print Optimization */
 @media print {
   body {
     background: white !important;
   }
-  .btn-stamp, input, select {
-    display: none !important;
+  .ticket-card {
+    box-shadow: none !important;
+    border-color: #000 !important;
+  }
+  .btn-stamp, input {
+    border: none !important;
   }
 }
 </style>

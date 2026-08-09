@@ -1,136 +1,157 @@
 import Swal from 'sweetalert2'
 
-// Toast simpel pojok kanan atas, dipakai untuk semua notifikasi sukses
-const Toast = Swal.mixin({
-    toast: true,
-    position: 'top-end',
-    showConfirmButton: false,
-    timer: 2000,
-    timerProgressBar: true,
-    didOpen: (toast) => {
-        toast.onmouseenter = Swal.stopTimer
-        toast.onmouseleave = Swal.resumeTimer
-    }
-})
-
 export const useProductManager = () => {
-    const form = ref({ 
-        id: null, 
-        categoryId: 0, 
-        name: '', 
-        sku: '', 
-        price: 0, 
-        costPrice: 0, 
-        stock: 0, 
-        isActive: true 
-    })
-    
-    const isFormOpen = ref<boolean>(false)
-    const isSaving = ref<boolean>(false)
-    const editingProduct = ref<any>(null)
-    const formError = ref<string | null>(null)
-    
-    // State khusus file gambar
-    const imageFile = ref<File | null>(null)
-    const imagePreview = ref<string | null>(null)
+  const isFormOpen = ref(false)
+  const isSaving = ref(false)
+  const editingProduct = ref<any>(null)
+  const formError = ref('')
+  const imagePreview = ref('')
+  const selectedFile = ref<File | null>(null)
 
-    const handleFileChange = (e: Event) => {
-        const target = e.target as HTMLInputElement
-        if (target.files && target.files[0]) {
-            const file = target.files[0]
-            imageFile.value = file
-            imagePreview.value = URL.createObjectURL(file)
-        }
+  const form = reactive({
+    name: '',
+    sku: '',
+    price: 0,
+    costPrice: 0,
+    stock: 0,
+    categoryId: 0,
+    isActive: true,
+  })
+
+  function resetForm() {
+    form.name = ''
+    form.sku = ''
+    form.price = 0
+    form.costPrice = 0
+    form.stock = 0
+    form.categoryId = 0
+    form.isActive = true
+    editingProduct.value = null
+    formError.value = ''
+    imagePreview.value = ''
+    selectedFile.value = null
+  }
+
+  function openForm(product: any = null, categories: any[] = []) {
+    resetForm()
+    if (product) {
+      editingProduct.value = product
+      form.name = product.name
+      form.sku = product.sku || ''
+      form.price = product.price
+      form.costPrice = product.costPrice || 0
+      form.stock = product.stock
+      form.categoryId = product.categoryId
+      form.isActive = product.isActive
+      if (product.image) imagePreview.value = product.image
+    } else if (categories.length > 0) {
+      form.categoryId = categories[0].id
+    }
+    isFormOpen.value = true
+  }
+
+  function closeForm() {
+    isFormOpen.value = false
+    resetForm()
+  }
+
+  function handleFileChange(event: Event) {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    if (!file) return
+
+    // Validasi Client Side
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg']
+    if (!allowedTypes.includes(file.type)) {
+      formError.value = 'Format file harus PNG atau JPG/JPEG.'
+      input.value = ''
+      return
     }
 
-    const deleteProduct = async (product: any, refreshCallback?: () => void) => {
-        try {
-            await $fetch(`/api/products/${product.id}`, { method: 'DELETE' })
-            
-            Toast.fire({
-                icon: 'success',
-                title: 'Produk berhasil dihapus'
-            })
-            
-            if (refreshCallback) refreshCallback()
-        } catch (err: any) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Gagal',
-                text: err?.data?.message || 'Gagal menghapus produk.',
-                confirmButtonColor: '#9b3a2e'
-            })
-        }
+    if (file.size > 1 * 1024 * 1024) {
+      formError.value = 'Ukuran file gambar maksimal 1 MB.'
+      input.value = ''
+      return
     }
 
-    const saveProduct = async (refreshCallback?: () => void) => {
-        isSaving.value = true
-        formError.value = null // Reset error sebelum mencoba
-        try {
-            // Gunakan FormData untuk mendukung file upload
-            const formData = new FormData()
-            formData.append('name', form.value.name)
-            formData.append('sku', form.value.sku || '')
-            formData.append('price', String(form.value.price))
-            formData.append('costPrice', String(form.value.costPrice || 0))
-            formData.append('stock', String(form.value.stock))
-            formData.append('categoryId', String(form.value.categoryId))
-            formData.append('isActive', String(form.value.isActive))
+    formError.value = ''
+    selectedFile.value = file
+    imagePreview.value = URL.createObjectURL(file)
+  }
 
-            if (imageFile.value) {
-                formData.append('image', imageFile.value)
-            }
+  async function saveProduct(refreshCallback?: Function) {
+    if (isSaving.value) return // Mencegah Double Click
+    formError.value = ''
 
-            const method = editingProduct.value ? 'PUT' : 'POST'
-            const url = editingProduct.value ? `/api/products/${form.value.id}` : '/api/products'
-            
-            await $fetch(url, {
-                method: method,
-                body: formData
-            })
+    if (!form.name.trim()) return (formError.value = 'Nama produk wajib diisi.')
+    if (!form.categoryId) return (formError.value = 'Kategori wajib dipilih.')
+    if (form.price <= 0) return (formError.value = 'Harga jual harus lebih dari 0.')
 
-            Toast.fire({
-                icon: 'success',
-                title: 'Data produk tersimpan'
-            })
-            
-            closeForm()
-            if (refreshCallback) refreshCallback()
-        } catch (err: any) {
-            // Masukkan pesan error ke formError agar tampil sebagai teks danger di dalam modal
-            formError.value = err?.data?.message || 'Terjadi kesalahan saat menyimpan.'
-        } finally {
-            isSaving.value = false
-        }
+    isSaving.value = true
+
+    try {
+      const formData = new FormData()
+      formData.append('name', form.name)
+      formData.append('sku', form.sku)
+      formData.append('price', String(form.price))
+      formData.append('costPrice', String(form.costPrice))
+      formData.append('stock', String(form.stock))
+      formData.append('categoryId', String(form.categoryId))
+      formData.append('isActive', String(form.isActive))
+
+      if (selectedFile.value) {
+        formData.append('image', selectedFile.value)
+      }
+
+      const url = editingProduct.value ? `/api/products/${editingProduct.value.id}` : '/api/products'
+      const method = editingProduct.value ? 'PUT' : 'POST'
+
+      await $fetch(url, { method, body: formData })
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Berhasil',
+        text: `Produk berhasil ${editingProduct.value ? 'diperbarui' : 'ditambahkan'}`,
+        timer: 1500,
+        showConfirmButton: false,
+      })
+
+      closeForm()
+      if (refreshCallback) refreshCallback()
+    } catch (err: any) {
+      formError.value = err.data?.message || 'Terjadi kesalahan saat menyimpan data.'
+    } finally {
+      isSaving.value = false
     }
+  }
 
-    const openForm = (product: any = null, categories: any[] = []) => {
-        editingProduct.value = product
-        form.value = product ? { ...product } : { id: null, categoryId: 0, name: '', sku: '', price: 0, costPrice: 0, stock: 0, isActive: true }
-        imageFile.value = null
-        imagePreview.value = product?.image || null
-        formError.value = null // Reset error saat membuka form
-        isFormOpen.value = true
+  async function deleteProduct(product: any, refreshCallback?: Function) {
+    try {
+      await $fetch(`/api/products/${product.id}`, { method: 'DELETE' })
+      Swal.fire({
+        icon: 'success',
+        title: 'Terhapus',
+        text: 'Produk berhasil dihapus',
+        timer: 1500,
+        showConfirmButton: false,
+      })
+      if (refreshCallback) refreshCallback()
+    } catch (err: any) {
+      Swal.fire('Gagal', err.data?.message || 'Gagal menghapus produk', 'error')
     }
+  }
 
-    const closeForm = () => {
-        isFormOpen.value = false
-        imageFile.value = null
-        imagePreview.value = null
-        formError.value = null
-    }
-
-    return {
-        form,
-        isFormOpen,
-        isSaving,
-        editingProduct,
-        formError,
-        imagePreview,
-        handleFileChange,
-        saveProduct,
-        deleteProduct,
-        openForm,
-        closeForm
-    }
+  return {
+    form,
+    isFormOpen,
+    isSaving,
+    editingProduct,
+    formError,
+    imagePreview,
+    handleFileChange,
+    saveProduct,
+    deleteProduct,
+    openForm,
+    closeForm,
+  }
 }
