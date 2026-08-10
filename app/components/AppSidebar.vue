@@ -10,9 +10,9 @@
       />
     </Transition>
 
-    <!-- Sidebar -->
+    <!-- Sidebar: Ditambahkan h-full / h-screen agar mt-auto bekerja konsisten di bawah -->
     <aside
-      class="fixed md:static inset-y-0 left-0 z-50 w-[82vw] max-w-72 md:w-72 md:max-w-none flex-shrink-0 bg-[#1c1410] text-[#f8f5ee] flex flex-col transform transition-transform duration-300 ease-in-out md:translate-x-0 shadow-2xl md:shadow-none border-r border-[#f8f5ee]/5"
+      class="fixed md:static inset-y-0 left-0 z-50 w-[82vw] max-w-72 md:w-72 md:max-w-none h-full flex-shrink-0 bg-[#1c1410] text-[#f8f5ee] flex flex-col transform transition-transform duration-300 ease-in-out md:translate-x-0 shadow-2xl md:shadow-none border-r border-[#f8f5ee]/5"
       :class="isOpen ? 'translate-x-0' : '-translate-x-full'"
     >
       <!-- Brand Header -->
@@ -76,14 +76,14 @@
               />
               <span class="truncate">{{ item.label }}</span>
 
-              <!-- Indikator Aktif (opsional, di kanan) -->
+              <!-- Indikator Aktif -->
               <div v-if="isActive(item.to)" class="ml-auto w-1.5 h-1.5 rounded-full bg-[#1c1410]/30 flex-shrink-0"></div>
             </NuxtLink>
           </div>
         </template>
       </nav>
 
-      <!-- Profil User Bawah -->
+      <!-- Profil User Bawah (Konsisten di bawah dengan mt-auto) -->
       <div class="px-3 sm:px-4 py-4 sm:py-6 mt-auto border-t border-[#f8f5ee]/10 flex-shrink-0 bg-[#17100d]">
         <div class="flex items-center gap-3 px-3 py-3 rounded-2xl bg-[#f8f5ee]/5 border border-[#f8f5ee]/10">
           <!-- Skeleton (saat data user masih dimuat) -->
@@ -111,7 +111,7 @@
                 {{ user?.name || 'Memuat...' }}
               </p>
               <p class="text-xs font-medium text-[#c9793f] uppercase tracking-wide truncate">
-                Kasir
+                {{ role === 'PEMILIK' ? 'Pemilik Toko' : 'Kasir' }}
               </p>
             </div>
           </template>
@@ -124,7 +124,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRequestHeaders, useFetch } from '#imports'
-// Ikon diimpor secara otomatis oleh nuxt-lucide-icons
 
 // --- Props & Emits ---
 defineProps<{ isOpen: boolean }>()
@@ -140,88 +139,86 @@ interface AuthUser {
   role: 'KASIR' | 'PEMILIK'
 }
 
-// Forward cookie browser ke request SSR untuk autentikasi
 const headers = useRequestHeaders(['cookie'])
 
 const { data: user, pending: userPending } = useFetch<AuthUser>('/api/auth/me', {
   headers,
-  // Tangani error secara diam-diam jika belum login
   onResponseError: () => {},
 })
 
 // --- Computed Properties ---
-
-// Role normalisasi (dipakai untuk menentukan path menu, bukan untuk label footer)
 const role = computed<'KASIR' | 'PEMILIK'>(() => {
   const currentRole = user.value?.role?.toUpperCase()
   if (currentRole === 'PEMILIK') return 'PEMILIK'
   if (currentRole === 'KASIR') return 'KASIR'
-  // Fallback berdasarkan path URL jika API belum siap
   return route.path.startsWith('/owner') ? 'PEMILIK' : 'KASIR'
 })
 
 // --- Konfigurasi Menu ---
-const menuGroups = computed(() => [
-  {
-    label: 'Halaman Utama',
-    items: [
-      {
-        label: 'Ringkasan',
-        to: role.value === 'PEMILIK' ? '/owner/dashboard' : '/kasir/dashboard',
-        icon: resolveComponent('LucideLayoutGrid'),
-      },
-      {
-        label: 'Kasir (POS)',
-        to: '/kasir/pos',
-        icon: resolveComponent('LucideMonitorSmartphone'),
-      },
-    ],
-  },
-  {
-    label: 'Manajemen Kedai',
-    items: [
-      {
-        label: 'Daftar Produk',
-        to: role.value === 'PEMILIK' ? '/owner/product' : '/kasir/product',
-        icon: resolveComponent('LucidePackage'),
-      },
-      {
-        label: 'Kategori Menu',
-        to: role.value === 'PEMILIK' ? '/owner/category' : '/kasir/category',
-        icon: resolveComponent('LucideTags'),
-      },
-      {
-        label: 'Riwayat Transaksi',
-        to: role.value === 'PEMILIK' ? '/owner/transaksi' : '/kasir/transaksi',
-        icon: resolveComponent('LucideReceiptText'),
-      },
-    ],
-  },
-  {
-    label: 'Analisis & Sistem',
-    items: [
-      {
-        label: 'Laporan Penjualan',
-        to: role.value === 'PEMILIK' ? '/owner/laporan' : '/kasir/laporan',
-        icon: resolveComponent('LucideBarChartBig'),
-      },
-      ...(role.value === 'PEMILIK'
-        ? [
-            {
-              label: 'Pengaturan Kedai',
-              to: '/owner/pengaturan',
-              icon: resolveComponent('LucideSettings'),
-            },
-          ]
-        : []),
-    ],
-  },
-])
+const menuGroups = computed(() => {
+  const groups: any[] = [
+    {
+      label: 'Halaman Utama',
+      items: [
+        {
+          label: 'Ringkasan',
+          to: role.value === 'PEMILIK' ? '/owner/dashboard' : '/kasir/dashboard',
+          icon: resolveComponent('LucideLayoutGrid'),
+        },
+        {
+          label: 'Kasir (POS)',
+          to: '/kasir/pos',
+          icon: resolveComponent('LucideMonitorSmartphone'),
+        },
+      ],
+    },
+    {
+      label: 'Manajemen Kedai',
+      items: [
+        {
+          label: 'Daftar Produk',
+          to: role.value === 'PEMILIK' ? '/owner/product' : '/kasir/product',
+          icon: resolveComponent('LucidePackage'),
+        },
+        {
+          label: 'Kategori Menu',
+          to: role.value === 'PEMILIK' ? '/owner/category' : '/kasir/category',
+          icon: resolveComponent('LucideTags'),
+        },
+        {
+          label: 'Riwayat Transaksi',
+          to: role.value === 'PEMILIK' ? '/owner/transaksi' : '/kasir/transaksi',
+          icon: resolveComponent('LucideReceiptText'),
+        },
+      ],
+    },
+  ]
+
+  // Group "Analisis & Sistem" HANYA MUNCUL jika role-nya PEMILIK
+  if (role.value === 'PEMILIK') {
+    groups.push({
+      label: 'Analisis & Sistem',
+      items: [
+        {
+          label: 'Laporan Penjualan',
+          to: '/owner/laporan',
+          icon: resolveComponent('LucideBarChartBig'),
+        },
+        {
+          label: 'Pengaturan Kedai',
+          to: '/owner/pengaturan',
+          icon: resolveComponent('LucideSettings'),
+        },
+      ],
+    })
+  }
+
+  return groups
+})
 
 // --- Logika Navigasi Aktif ---
 const activeTo = computed<string | null>(() => {
-  const allPaths = menuGroups.value.flatMap((g) => g.items.map((i) => i.to))
-  // Cari path yang paling spesifik (terpanjang) yang cocok dengan URL saat ini
+  const allPaths = menuGroups.value.flatMap((g) => g.items.map((i: { to: any }) => i.to))
   const matches = allPaths.filter(
     (to) => route.path === to || route.path.startsWith(to + '/')
   )
@@ -237,7 +234,6 @@ function isActive(to: string) {
 </script>
 
 <style scoped>
-/* Transisi Overlay */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.3s ease-in-out;
@@ -248,7 +244,6 @@ function isActive(to: string) {
   opacity: 0;
 }
 
-/* Kustomisasi Scrollbar Webkit (opsional) */
 .scrollbar-thin {
   scrollbar-width: thin;
 }

@@ -1,13 +1,10 @@
 // server/api/dashboard/stats.ts
 export default defineEventHandler(async (event) => {
   try {
-    // A. Hitung total seluruh produk
     const totalProduk = await prisma.product.count()
-
-    // B. Hitung total karyawan (Sesuaikan nama model Prisma Anda, misal: prisma.user atau prisma.employee)
     const totalKaryawan = await prisma.user.count()
 
-    // C. Hitung total pesanan hari ini (Rentang dari jam 00:00:00 sampai 23:59:59 hari ini)
+    // Rentang hari ini
     const startOfDay = new Date()
     startOfDay.setHours(0, 0, 0, 0)
 
@@ -16,30 +13,60 @@ export default defineEventHandler(async (event) => {
 
     const totalPesananHariIni = await prisma.order.count({
       where: {
-        createdAt: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
+        createdAt: { gte: startOfDay, lte: endOfDay },
       },
     })
 
-    // (Opsional) Logika untuk menghitung growth atau data mingguan jika diperlukan
-    const pesananGrowth = 0 // Dapat dihitung dengan membandingkan hari kemarin jika ada
+    // Rentang kemarin (untuk hitung growth)
+    const startOfYesterday = new Date(startOfDay)
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1)
+    const endOfYesterday = new Date(endOfDay)
+    endOfYesterday.setDate(endOfYesterday.getDate() - 1)
+
+    const totalPesananKemarin = await prisma.order.count({
+      where: {
+        createdAt: { gte: startOfYesterday, lte: endOfYesterday },
+      },
+    })
+
+    // Hitung persentase growth
+    let pesananGrowth = 0
+    if (totalPesananKemarin > 0) {
+      pesananGrowth = Math.round(((totalPesananHariIni - totalPesananKemarin) / totalPesananKemarin) * 100)
+    } else if (totalPesananHariIni > 0) {
+      pesananGrowth = 100
+    }
+
+    // Generate data 7 hari terakhir untuk grafik
+    const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
+    const weeklyData = []
+
+    for (let i = 6; i >= 0; i--) {
+      const dStart = new Date()
+      dStart.setDate(dStart.getDate() - i)
+      dStart.setHours(0, 0, 0, 0)
+
+      const dEnd = new Date(dStart)
+      dEnd.setHours(23, 59, 59, 999)
+
+      const count = await prisma.order.count({
+        where: {
+          createdAt: { gte: dStart, lte: dEnd },
+        },
+      })
+
+      weeklyData.push({
+        day: dayNames[dStart.getDay()],
+        total: count,
+      })
+    }
 
     return {
       totalPesananHariIni,
       pesananGrowth,
       totalProduk,
       totalKaryawan,
-      weeklyData: [
-        { day: 'Sen', total: 0 },
-        { day: 'Sel', total: 0 },
-        { day: 'Rab', total: 0 },
-        { day: 'Kam', total: 0 },
-        { day: 'Jum', total: 0 },
-        { day: 'Sab', total: 0 },
-        { day: 'Min', total: 0 },
-      ]
+      weeklyData,
     }
   } catch (error: any) {
     throw createError({

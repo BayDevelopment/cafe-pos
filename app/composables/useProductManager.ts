@@ -1,5 +1,3 @@
-import Swal from 'sweetalert2'
-
 export const useProductManager = () => {
   const isFormOpen = ref(false)
   const isSaving = ref(false)
@@ -108,14 +106,6 @@ export const useProductManager = () => {
 
       await $fetch(url, { method, body: formData })
 
-      Swal.fire({
-        icon: 'success',
-        title: 'Berhasil',
-        text: `Produk berhasil ${editingProduct.value ? 'diperbarui' : 'ditambahkan'}`,
-        timer: 1500,
-        showConfirmButton: false,
-      })
-
       closeForm()
       if (refreshCallback) refreshCallback()
     } catch (err: any) {
@@ -126,19 +116,8 @@ export const useProductManager = () => {
   }
 
   async function deleteProduct(product: any, refreshCallback?: Function) {
-    try {
-      await $fetch(`/api/products/${product.id}`, { method: 'DELETE' })
-      Swal.fire({
-        icon: 'success',
-        title: 'Terhapus',
-        text: 'Produk berhasil dihapus',
-        timer: 1500,
-        showConfirmButton: false,
-      })
-      if (refreshCallback) refreshCallback()
-    } catch (err: any) {
-      Swal.fire('Gagal', err.data?.message || 'Gagal menghapus produk', 'error')
-    }
+    await $fetch(`/api/products/${product.id}`, { method: 'DELETE' })
+    if (refreshCallback) refreshCallback()
   }
 
   return {

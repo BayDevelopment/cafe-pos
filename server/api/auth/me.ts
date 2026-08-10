@@ -25,6 +25,8 @@ export default defineEventHandler(async (event) => {
         email: true,
         role: true,
         isActive: true,
+        createdAt: true,
+        emailVerifiedAt: true,
       },
     });
 
@@ -41,6 +43,9 @@ export default defineEventHandler(async (event) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      emailVerifiedAt: user.emailVerifiedAt,
     };
   } catch (error: any) {
     if (error.statusCode) throw error;

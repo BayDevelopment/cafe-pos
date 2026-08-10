@@ -461,7 +461,7 @@
             <NuxtLink :to="`/kasir/order/${selectedTrx.id}`" class="btn-stamp mono flex-1 py-2.5 text-xs text-center">
               🖨️ LIHAT STRUK
             </NuxtLink>
-            <button type="button" class="mono text-xs text-[#8A7A68] hover:text-[#2b1b12] px-4 py-2.5 transition"
+            <button type="button" class="btn-cancel text-xs text-[#8A7A68] hover:text-[#faf6ee] px-4 py-2.5 rounded-lg border border-[#2b1b12]/20 transition font-semibold"
               @click="closeDetailModal">
               Tutup
             </button>
@@ -798,6 +798,23 @@ function formatDate(dateString) {
 </script>
 
 <style scoped>
+.btn-cancel {
+  background: transparent;
+  border: 1.5px solid rgba(43, 27, 18, 0.2);
+  color: #8A7A68;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel:hover {
+  background: #9b3a2e;
+  border-color: #9b3a2e;
+  color: #faf6ee;
+  transform: translateY(-1px);
+}
 .label-xs {
   font-size: 0.66rem;
   font-weight: 500;

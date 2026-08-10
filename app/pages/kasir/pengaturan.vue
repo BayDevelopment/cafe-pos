@@ -156,6 +156,10 @@
 </template>
 
 <script setup>
+definePageMeta({
+  middleware: ['owner-only']
+})
+
 useHead({
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },

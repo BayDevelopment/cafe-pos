@@ -1,9 +1,20 @@
 <!-- app/pages/kasir/kategori.vue -->
 <template>
-  <div class="p-4 md:p-10 max-w-6xl mx-auto space-y-6 md:space-y-8 font-poppins">
+  <div class="p-4 md:p-10 max-w-6xl mx-auto space-y-6 md:space-y-8 font-poppins relative">
+
+    <!-- TOAST ALERT NOTIFICATION (CUSTOM) -->
+    <Transition name="slide-fade">
+      <div v-if="showAlert"
+        class="fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border text-xs"
+        :class="alertType === 'success' ? 'bg-[#2b1b12] text-[#faf6ee] border-[#b8763c]' : 'bg-[#9b3a2e] text-[#faf6ee] border-[#7a2e24]'">
+        <span class="text-base">{{ alertType === 'success' ? '✅' : '⚠️' }}</span>
+        <p class="font-medium">{{ alertMessage }}</p>
+      </div>
+    </Transition>
 
     <!-- HEADER HALAMAN -->
-    <header class="ticket-card p-5 md:p-6 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <header
+      class="ticket-card p-5 md:p-6 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div>
         <div class="flex items-center gap-2 mb-1">
           <span class="label-xs px-2 py-0.5 rounded-md bg-[#2b1b12] text-[#faf6ee] font-semibold">MANAJEMEN</span>
@@ -13,12 +24,10 @@
         <p class="text-xs text-[#8A7A68] mt-0.5">Kelola pengelompokan menu untuk memudahkan pencarian produk.</p>
       </div>
 
-      <button 
-        type="button"
-        class="btn-stamp px-4 py-2.5 text-xs w-full md:w-auto rounded-lg font-semibold"
-        @click="openCreateForm"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <button type="button" class="btn-stamp px-4 py-2.5 text-xs w-full md:w-auto rounded-lg font-semibold"
+        @click="openCreateForm">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 inline" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <line x1="12" y1="5" x2="12" y2="19"></line>
           <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
@@ -30,25 +39,20 @@
     <div class="ticket-card p-4 rounded-xl flex flex-col md:flex-row gap-4 items-center justify-between">
       <div class="w-full md:w-80 relative">
         <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-[#8A7A68]">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            stroke-width="2">
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
         </span>
-        <input 
-          v-model="searchQuery"
-          type="text"
-          placeholder="Cari nama kategori..."
-          class="field text-xs pl-9 pr-3 py-2.5 bg-[#f4eee3] rounded-lg border border-[#2b1b12]/20 w-full focus:outline-none focus:border-[#b8763c] transition"
-        />
+        <input v-model="searchQuery" type="text" placeholder="Cari nama kategori..."
+          class="field text-xs pl-9 pr-3 py-2.5 bg-[#f4eee3] rounded-lg border border-[#2b1b12]/20 w-full focus:outline-none focus:border-[#b8763c] transition" />
       </div>
 
       <div class="flex items-center gap-2 text-xs text-[#8A7A68] w-full md:w-auto justify-end font-medium">
         <span>Tampilkan:</span>
-        <select 
-          v-model="limit" 
-          class="bg-[#f4eee3] border border-[#2b1b12]/20 rounded-lg p-2 focus:outline-none text-xs font-semibold text-[#2b1b12]"
-        >
+        <select v-model="limit"
+          class="bg-[#f4eee3] border border-[#2b1b12]/20 rounded-lg p-2 focus:outline-none text-xs font-semibold text-[#2b1b12]">
           <option :value="5">5</option>
           <option :value="10">10</option>
           <option :value="25">25</option>
@@ -80,11 +84,8 @@
     <!-- ERROR STATE -->
     <div v-else-if="fetchError" class="ticket-card p-12 rounded-xl text-center space-y-3">
       <p class="text-xs text-[#9b3a2e] font-medium">Gagal memuat data kategori. Periksa koneksi atau coba lagi.</p>
-      <button 
-        type="button" 
-        class="btn-stamp inline-flex px-4 py-2 text-xs rounded-lg font-semibold"
-        @click="refreshCategories"
-      >
+      <button type="button" class="btn-stamp inline-flex px-4 py-2 text-xs rounded-lg font-semibold"
+        @click="refreshCategories">
         COBA LAGI
       </button>
     </div>
@@ -101,11 +102,7 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-[#2b1b12]/5">
-            <tr 
-              v-for="category in categories" 
-              :key="category.id"
-              class="hover:bg-[#f4eee3]/60 transition-colors group"
-            >
+            <tr v-for="category in categories" :key="category.id" class="hover:bg-[#f4eee3]/60 transition-colors group">
               <td class="px-6 py-4 font-bold text-[#2b1b12] text-base">
                 {{ category.name }}
               </td>
@@ -117,26 +114,22 @@
               <td class="px-6 py-4 text-center">
                 <div class="inline-flex items-center justify-center gap-2">
                   <!-- ICON EDIT -->
-                  <button 
-                    type="button"
-                    title="Edit Kategori"
+                  <button type="button" title="Edit Kategori"
                     class="p-2 rounded-lg bg-[#b8763c]/10 text-[#b8763c] hover:bg-[#b8763c] hover:text-[#faf6ee] active:scale-95 transition-all duration-150"
-                    @click="openEditForm(category)"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    @click="openEditForm(category)">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                     </svg>
                   </button>
 
                   <!-- ICON HAPUS -->
-                  <button 
-                    type="button"
-                    title="Hapus Kategori"
+                  <button type="button" title="Hapus Kategori"
                     class="p-2 rounded-lg bg-[#9b3a2e]/10 text-[#9b3a2e] hover:bg-[#9b3a2e] hover:text-[#faf6ee] active:scale-95 transition-all duration-150"
-                    @click="confirmDelete(category)"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    @click="confirmDelete(category)">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                       <polyline points="3 6 5 6 21 6"></polyline>
                       <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                       <line x1="10" y1="11" x2="10" y2="17"></line>
@@ -160,18 +153,18 @@
       </div>
 
       <!-- PAGINATION CONTROL -->
-      <footer v-if="pagination.totalPages > 1" class="p-4 bg-[#f4eee3]/50 border-t border-[#2b1b12]/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-medium">
+      <footer v-if="pagination.totalPages > 1"
+        class="p-4 bg-[#f4eee3]/50 border-t border-[#2b1b12]/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-medium">
         <span class="text-[#8A7A68]">
-          Menampilkan {{ (currentPage - 1) * limit + 1 }} - {{ Math.min(currentPage * limit, pagination.total) }} dari {{ pagination.total }} data
+          Menampilkan {{ (currentPage - 1) * limit + 1 }} - {{ Math.min(currentPage * limit, pagination.total) }} dari
+          {{
+            pagination.total }} data
         </span>
 
         <div class="flex items-center gap-2">
-          <button 
-            type="button"
-            :disabled="currentPage <= 1"
+          <button type="button" :disabled="currentPage <= 1"
             class="px-3 py-1.5 rounded-lg border border-[#2b1b12]/20 bg-[#faf6ee] text-[#2b1b12] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#b8763c] hover:text-[#faf6ee] transition"
-            @click="currentPage--"
-          >
+            @click="currentPage--">
             ← SEBELUMNYA
           </button>
 
@@ -179,12 +172,9 @@
             {{ currentPage }} / {{ pagination.totalPages }}
           </span>
 
-          <button 
-            type="button"
-            :disabled="currentPage >= pagination.totalPages"
+          <button type="button" :disabled="currentPage >= pagination.totalPages"
             class="px-3 py-1.5 rounded-lg border border-[#2b1b12]/20 bg-[#faf6ee] text-[#2b1b12] disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[#b8763c] hover:text-[#faf6ee] transition"
-            @click="currentPage++"
-          >
+            @click="currentPage++">
             SELANJUTNYA →
           </button>
         </div>
@@ -192,54 +182,87 @@
     </main>
 
     <!-- MODAL FORM TAMBAH / EDIT -->
-    <div 
-      v-if="isFormOpen" 
-      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-      @click.self="closeForm"
-    >
-      <div class="ticket-card rounded-xl w-full max-w-md p-6 space-y-5 animate-scale-in">
-        <div>
-          <h2 class="text-lg text-[#2b1b12] font-bold">
-            {{ editingCategory ? 'Edit Kategori' : 'Tambah Kategori Baru' }}
-          </h2>
-          <p class="text-xs text-[#8A7A68] mt-0.5">Isi nama kategori dengan jelas dan singkat.</p>
-        </div>
-
-        <form class="space-y-4" @submit.prevent="submitForm">
+    <Teleport to="body">
+      <div v-if="isFormOpen"
+        class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        @click.self="closeForm">
+        <div class="ticket-card rounded-xl w-full max-w-md p-6 space-y-5 animate-scale-in">
           <div>
-            <label for="category-name" class="label-xs block text-[#8A7A68] mb-1 font-semibold">Nama Kategori *</label>
-            <input 
-              id="category-name"
-              v-model.trim="form.name" 
-              type="text" 
-              required 
-              placeholder="Contoh: Minuman Kopi"
-              class="field text-sm p-2.5 bg-[#f4eee3] rounded-lg border border-[#2b1b12]/20 w-full focus:outline-none focus:border-[#b8763c]" 
-            />
+            <h2 class="text-lg text-[#2b1b12] font-bold">
+              {{ editingCategory ? 'Edit Kategori' : 'Tambah Kategori Baru' }}
+            </h2>
+            <p class="text-xs text-[#8A7A68] mt-0.5">Isi nama kategori dengan jelas dan singkat.</p>
           </div>
 
-          <p v-if="formError" class="text-xs text-[#9b3a2e] font-medium">{{ formError }}</p>
+          <form class="space-y-4" @submit.prevent="submitForm">
+            <div>
+              <label for="category-name" class="label-xs block text-[#8A7A68] mb-1 font-semibold">Nama Kategori
+                *</label>
+              <input id="category-name" v-model.trim="form.name" type="text" required placeholder="Contoh: Minuman Kopi"
+                class="field text-sm p-2.5 bg-[#f4eee3] rounded-lg border border-[#2b1b12]/20 w-full focus:outline-none focus:border-[#b8763c]" />
+            </div>
 
-          <div class="flex items-center gap-3 pt-2">
-            <button 
-              type="submit" 
-              :disabled="isSaving" 
-              class="btn-stamp flex-1 py-2.5 text-xs rounded-lg font-semibold"
-            >
-              <span v-if="isSaving" class="dot-spin" aria-hidden="true"></span>
-              {{ isSaving ? 'MENYIMPAN…' : (editingCategory ? 'SIMPAN PERUBAHAN' : 'TAMBAH KATEGORI') }}
-            </button>
-            <button 
-              type="button" 
-              class="btn-cancel text-xs text-[#8A7A68] hover:text-[#faf6ee] px-4 py-2.5 rounded-lg border border-[#2b1b12]/20 transition font-semibold"
-              @click="closeForm"
-            >
+            <p v-if="formError" class="text-xs text-[#9b3a2e] font-medium">{{ formError }}</p>
+
+            <div class="flex items-center gap-3 pt-2">
+              <button type="submit" :disabled="isSaving"
+                class="btn-stamp flex-1 py-2.5 text-xs rounded-lg font-semibold">
+                <span v-if="isSaving" class="dot-spin" aria-hidden="true"></span>
+                {{ isSaving ? 'MENYIMPAN…' : (editingCategory ? 'SIMPAN PERUBAHAN' : 'TAMBAH KATEGORI') }}
+              </button>
+              <button type="button"
+                class="btn-cancel text-xs text-[#8A7A68] hover:text-[#faf6ee] px-4 py-2.5 rounded-lg border border-[#2b1b12]/20 transition font-semibold"
+                @click="closeForm">
+                Batal
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- MODAL CONFIRM DELETE (CUSTOM) -->
+    <Teleport to="body">
+      <div v-if="categoryToDelete"
+        class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        @click.self="cancelDelete">
+        <div class="ticket-card rounded-xl w-full max-w-sm p-6 space-y-4">
+          <div class="text-center space-y-2">
+            <div class="w-12 h-12 rounded-full bg-[#9b3a2e]/10 text-[#9b3a2e] flex items-center justify-center mx-auto">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
+            </div>
+            <h3 class="text-lg text-[#2b1b12] font-bold">Hapus Kategori?</h3>
+            <p class="text-xs text-[#8A7A68]">
+              <span class="font-bold text-[#2b1b12]">"{{ categoryToDelete.name }}"</span> akan dihapus permanen.
+              Tindakan ini tidak dapat dibatalkan.
+            </p>
+            <p v-if="getProductCount(categoryToDelete) > 0"
+              class="text-xs text-[#9b3a2e] font-semibold bg-[#9b3a2e]/10 border border-[#9b3a2e]/20 rounded p-2 mt-2">
+              ⚠️ Kategori ini masih digunakan oleh {{ getProductCount(categoryToDelete) }} produk!
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2 pt-2">
+            <button type="button"
+              class="flex-1 py-2 rounded-lg text-xs border border-[#2b1b12]/20 text-[#2b1b12] hover:bg-[#2b1b12]/5 transition font-semibold"
+              :disabled="isDeleting" @click="cancelDelete">
               Batal
             </button>
+            <button type="button"
+              class="flex-1 py-2 rounded-lg text-xs bg-[#9b3a2e] text-[#faf6ee] font-bold hover:bg-[#7a2e24] transition disabled:opacity-50"
+              :disabled="isDeleting" @click="executeDelete">
+              {{ isDeleting ? 'MENGHAPUS...' : 'HAPUS' }}
+            </button>
           </div>
-        </form>
+        </div>
       </div>
-    </div>
+    </Teleport>
 
   </div>
 </template>
@@ -251,15 +274,6 @@ useHead({
     { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap' }
   ]
 })
-
-async function getSwal() {
-  if (import.meta.client) {
-    await import('sweetalert2/dist/sweetalert2.min.css')
-    const Swal = (await import('sweetalert2')).default
-    return Swal
-  }
-  return null
-}
 
 // --- Pagination & Search State ---
 const searchQuery = ref('')
@@ -284,6 +298,20 @@ const pagination = computed(() => response.value?.pagination || { total: 0, page
 
 function getProductCount(category) {
   return category?._count?.products ?? category?.productCount ?? 0
+}
+
+// --- Alert / Toast State (Custom, menggantikan SweetAlert2) ---
+const alertMessage = ref('')
+const alertType = ref('success') // 'success' | 'error'
+const showAlert = ref(false)
+
+function triggerAlert(msg, type = 'success') {
+  alertMessage.value = msg
+  alertType.value = type
+  showAlert.value = true
+  setTimeout(() => {
+    showAlert.value = false
+  }, 3000)
 }
 
 // --- Form State ---
@@ -334,14 +362,15 @@ async function submitForm() {
     return
   }
 
+  const wasEditing = !!editingCategory.value
   isSaving.value = true
   formError.value = ''
 
   try {
-    const endpoint = editingCategory.value 
-      ? `/api/categories/${editingCategory.value.id}` 
+    const endpoint = editingCategory.value
+      ? `/api/categories/${editingCategory.value.id}`
       : '/api/categories'
-    
+
     const method = editingCategory.value ? 'PUT' : 'POST'
 
     await $fetch(endpoint, {
@@ -352,18 +381,10 @@ async function submitForm() {
     await refreshCategories()
     closeForm()
 
-    const Swal = await getSwal()
-    if (Swal) {
-      Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'success',
-        title: editingCategory.value ? 'Kategori berhasil diperbarui' : 'Kategori berhasil dibuat',
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true
-      })
-    }
+    triggerAlert(
+      wasEditing ? 'Kategori berhasil diperbarui!' : 'Kategori berhasil dibuat!',
+      'success'
+    )
   } catch (error) {
     formError.value = 'Gagal menyimpan kategori: ' + (error.data?.statusMessage || error.data?.message || error.message)
   } finally {
@@ -371,52 +392,35 @@ async function submitForm() {
   }
 }
 
-// --- Delete Handling ---
-async function confirmDelete(category) {
-  const count = getProductCount(category)
-  let warningText = `"${category.name}" akan dihapus permanen.`
-  
-  if (count > 0) {
-    warningText += `\n⚠️ Kategori ini masih digunakan oleh ${count} produk!`
-  }
+// --- Konfirmasi Hapus Kategori (Modal Custom, menggantikan Swal.fire) ---
+const categoryToDelete = ref(null)
+const isDeleting = ref(false)
 
-  const Swal = await getSwal()
-  if (Swal) {
-    const result = await Swal.fire({
-      title: 'Hapus Kategori?',
-      text: warningText,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Ya, Hapus!',
-      cancelButtonText: 'Batal',
-      confirmButtonColor: '#9b3a2e',
-      cancelButtonColor: '#8A7A68',
-      reverseButtons: true
-    })
+function confirmDelete(category) {
+  if (isDeleting.value) return
+  categoryToDelete.value = category
+}
 
-    if (result.isConfirmed) {
-      try {
-        await $fetch(`/api/categories/${category.id}`, { method: 'DELETE' })
-        await refreshCategories()
+function cancelDelete() {
+  if (isDeleting.value) return
+  categoryToDelete.value = null
+}
 
-        Swal.fire({
-          toast: true,
-          position: 'top-end',
-          icon: 'success',
-          title: 'Kategori berhasil dihapus',
-          showConfirmButton: false,
-          timer: 3000,
-          timerProgressBar: true
-        })
-      } catch (error) {
-        Swal.fire({
-          icon: 'error',
-          title: 'Gagal Menghapus',
-          text: error.data?.statusMessage || error.data?.message || error.message,
-          confirmButtonText: 'Tutup'
-        })
-      }
-    }
+async function executeDelete() {
+  if (!categoryToDelete.value || isDeleting.value) return
+
+  const category = categoryToDelete.value
+  isDeleting.value = true
+
+  try {
+    await $fetch(`/api/categories/${category.id}`, { method: 'DELETE' })
+    await refreshCategories()
+    categoryToDelete.value = null
+    triggerAlert(`Kategori "${category.name}" berhasil dihapus!`, 'success')
+  } catch (error) {
+    triggerAlert(error.data?.statusMessage || error.data?.message || error.message || 'Gagal menghapus kategori.', 'error')
+  } finally {
+    isDeleting.value = false
   }
 }
 </script>
@@ -492,6 +496,7 @@ async function confirmDelete(category) {
   0% {
     background-position: 200% 0;
   }
+
   100% {
     background-position: -200% 0;
   }
@@ -510,5 +515,17 @@ async function confirmDelete(category) {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* TOAST TRANSITION */
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+  transition: all 0.25s ease;
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 </style>
