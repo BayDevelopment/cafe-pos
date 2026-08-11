@@ -1,3 +1,4 @@
+// server/api/transactions.get.ts
 import { db } from "../utils/db";
 import jwt from "jsonwebtoken";
 
@@ -40,6 +41,10 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  // Normalisasi role user
+  const userRole = String(user.role || "").toUpperCase();
+  const isOwner = userRole === "PEMILIK";
+
   // 2. Query Parameters dari Client
   const query = getQuery(event);
   const page = Math.max(1, Number(query.page) || 1);
@@ -50,7 +55,7 @@ export default defineEventHandler(async (event) => {
   const status = query.status ? String(query.status) : undefined;
   const paymentMethod = query.paymentMethod ? String(query.paymentMethod) : undefined;
 
-  // 3. Menyusun Filter Search & Status
+  // 3. Menyusun Filter Prisma (whereCondition)
   const whereCondition: any = {};
 
   if (status) {
@@ -59,6 +64,37 @@ export default defineEventHandler(async (event) => {
 
   if (paymentMethod) {
     whereCondition.paymentMethod = paymentMethod;
+  }
+
+  // --- PEMBATASAN ROLE KASIR (Hanya Hari Ini) ---
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+
+  if (!isOwner) {
+    // Jika user adalah KASIR, paksa filter createdAt hanya hari ini
+    whereCondition.createdAt = {
+      gte: todayStart,
+      lte: todayEnd,
+    };
+  } else {
+    // Jika PEMILIK, cek apakah ada filter tanggal opsional dari query
+    const startDate = query.startDate ? new Date(String(query.startDate)) : null;
+    const endDate = query.endDate ? new Date(String(query.endDate)) : null;
+
+    if (startDate || endDate) {
+      whereCondition.createdAt = {};
+      if (startDate) {
+        startDate.setHours(0, 0, 0, 0);
+        whereCondition.createdAt.gte = startDate;
+      }
+      if (endDate) {
+        endDate.setHours(23, 59, 59, 999);
+        whereCondition.createdAt.lte = endDate;
+      }
+    }
   }
 
   // PERBAIKAN SEARCH PRISMA (Memisahkan numeric ID & string fields + Nama Kasir)

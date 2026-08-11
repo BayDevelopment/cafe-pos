@@ -267,7 +267,9 @@ definePageMeta({
     middleware: ['auth']
 })
 
-const user = ref<any>(null)
+// 1. Ambil state global & fungsi dari useAuth
+const { user, fetchUser, updateUser, logout } = useAuth()
+
 const pending = ref(true)
 const loadingUpdate = ref(false)
 
@@ -306,7 +308,6 @@ const form = reactive({
 })
 
 // Logika Frontend: Email disable jika sudah terverifikasi DAN role BUKAN PEMILIK
-// (Catatan: aturan yang sama juga ditegakkan ulang di server, form ini hanya UX)
 const isEmailDisabled = computed(() => {
     const isVerified = !!user.value?.emailVerifiedAt
     const isOwner = user.value?.role?.toUpperCase() === 'PEMILIK'
@@ -322,11 +323,10 @@ const avatarUrl = computed(() => {
 const fetchUserData = async () => {
     pending.value = true
     try {
-        const res: any = await $fetch('/api/auth/me')
+        const res = await fetchUser()
         if (res) {
-            user.value = res
-            form.name = res.name
-            form.email = res.email
+            form.name = res.name || ''
+            form.email = res.email || ''
         }
     } catch (err: any) {
         console.error('Gagal memuat profil:', err)
@@ -335,8 +335,14 @@ const fetchUserData = async () => {
     }
 }
 
-onMounted(() => {
-    fetchUserData()
+onMounted(async () => {
+    if (!user.value) {
+        await fetchUserData()
+    } else {
+        form.name = user.value.name || ''
+        form.email = user.value.email || ''
+        pending.value = false
+    }
 })
 
 const resetPasswordFields = () => {
@@ -346,15 +352,9 @@ const resetPasswordFields = () => {
 }
 
 const updateProfile = async () => {
-    // Guard sinkron: cegah eksekusi ganda kalau tombol diklik cepat sebelum
-    // atribut disabled sempat ter-render (klik dobel, atau Enter + klik bersamaan)
     if (loadingUpdate.value) return
     loadingUpdate.value = true
 
-    // Validasi ganti password di sisi klien, sesuai aturan backend:
-    // - butuh oldPassword jika newPassword diisi
-    // - newPassword minimal 6 karakter
-    // - confirmPassword harus sama dengan newPassword
     const wantsPasswordChange = !!form.newPassword || !!form.oldPassword || !!form.confirmPassword
 
     if (wantsPasswordChange) {
@@ -393,6 +393,10 @@ const updateProfile = async () => {
 
         if (res?.success) {
             triggerAlert('Profil dan keamanan berhasil diperbarui!', 'success')
+            
+            // 👉 UPDATE STATE GLOBAL SECARA INSTAN AGAR NAVBAR LANGSUNG BERUBAH
+            updateUser({ name: form.name, email: form.email })
+
             resetPasswordFields()
             await fetchUserData()
         }
@@ -404,15 +408,12 @@ const updateProfile = async () => {
 }
 
 const handleSendVerification = async () => {
-    // Guard sinkron: cegah klik ganda memicu 2 request sekaligus
     if (sendingVerification.value || verificationSent.value) return
 
     verificationError.value = ''
     sendingVerification.value = true
 
     try {
-        // Sesuaikan path endpoint ini dengan endpoint pengiriman email verifikasi
-        // yang sudah/akan kamu buat (mis. server/api/auth/send-verification.ts)
         await $fetch('/api/auth/send-verification', { method: 'POST' })
         verificationSent.value = true
     } catch (err: any) {
@@ -424,25 +425,10 @@ const handleSendVerification = async () => {
 
 const handleLogout = async () => {
     try {
-        // Opsi A: Jika menggunakan useAuth composable (Rekomendasi agar state bersih)
-        const { logout } = useAuth()
-        if (logout) {
-            await logout()
-            return
-        }
-
-        // Opsi B: Fallback jika memanggil fetch manual
-        await $fetch('/api/auth/logout', { method: 'POST' })
-
-        // Bersihkan state lokal jika ada
-        user.value = null
-
-        // Redirect paksa ke halaman login
-        await navigateTo('/auth/login', { replace: true })
+        await logout()
     } catch (err) {
         console.error('Logout error:', err)
-        // Tetap arahkan ke login jika token sudah kadaluarsa di server
-        navigateTo('/auth/login', { replace: true })
+        navigateTo('/kasir/login', { replace: true })
     }
 }
 
@@ -459,7 +445,6 @@ useHead({
     title: 'Profil Pengguna - Kedai Kopi POS',
 })
 </script>
-
 <style scoped>
 .label-xs {
     font-size: 0.66rem;

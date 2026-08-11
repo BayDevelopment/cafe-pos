@@ -1,4 +1,4 @@
-<!-- app/pages/kasir/produk.vue -->
+<!-- app/pages/owner/produk.vue -->
 <template>
     <div class="p-4 md:p-10 max-w-6xl mx-auto space-y-6 md:space-y-8 font-['Poppins',sans-serif] relative">
 
@@ -17,17 +17,29 @@
             <div>
                 <div class="flex items-center gap-2 mb-1">
                     <span
-                        class="label-xs px-2 py-0.5 rounded bg-[#2b1b12] text-[#faf6ee] font-medium text-[10px] tracking-wider">MANAJEMEN</span>
-                    <span class="label-xs text-[#8A7A68] text-[10px] font-medium tracking-wider">DATA PRODUK</span>
+                        class="label-xs px-2 py-0.5 rounded bg-[#2b1b12] text-[#faf6ee] font-medium text-[10px] tracking-wider">PORTAL
+                        PEMILIK</span>
+                    <span class="label-xs text-[#8A7A68] text-[10px] font-medium tracking-wider">MANAJEMEN
+                        KATALOG</span>
                 </div>
-                <h1 class="text-xl md:text-2xl text-[#2b1b12] font-bold tracking-tight">Daftar Produk</h1>
-                <p class="text-xs text-[#8A7A68] mt-0.5">Kelola menu, harga, stok, dan kategori toko.</p>
+                <h1 class="text-xl md:text-2xl text-[#2b1b12] font-bold tracking-tight">Daftar Produk & Stok</h1>
+                <p class="text-xs text-[#8A7A68] mt-0.5">Kontrol penuh menu, harga, modal, dan penghapusan data produk
+                    toko.</p>
             </div>
 
-            <button @click="openForm(null, categories)"
-                class="btn-stamp px-4 py-2.5 text-xs w-full md:w-auto flex items-center justify-center gap-2 font-semibold">
-                <span class="text-sm font-bold">＋</span> TAMBAH PRODUK
-            </button>
+            <div class="flex items-center gap-3 w-full md:w-auto">
+                <!-- Tombol Dashboard -->
+                <NuxtLink to="/owner/dashboard"
+                    class="btn-cancel text-xs px-4 py-2.5 rounded-lg no-underline font-semibold flex items-center justify-center">
+                    ← Dashboard
+                </NuxtLink>
+
+                <!-- Tombol Tambah Produk (Class disamakan persis dengan Dashboard) -->
+                <button @click="openForm(null, categories)"
+                    class="btn-cancel text-xs px-4 py-2.5 rounded-lg no-underline font-semibold flex items-center justify-center gap-1.5 w-full md:w-auto">
+                    <span>＋</span> TAMBAH PRODUK
+                </button>
+            </div>
         </div>
 
         <!-- FILTER & SEARCH -->
@@ -62,8 +74,29 @@
         </div>
 
         <!-- SKELETON LOADING -->
-        <div v-if="pending" class="ticket-card overflow-hidden">
-            <div class="p-6 text-center text-xs text-[#8A7A68]">Memuat data produk...</div>
+        <div v-if="pending" class="ticket-card overflow-hidden p-6 space-y-4">
+            <div class="flex items-center justify-between pb-4 border-b border-[#2b1b12]/15">
+                <div class="skeleton h-4 w-32 rounded"></div>
+                <div class="skeleton h-4 w-24 rounded"></div>
+                <div class="skeleton h-4 w-20 rounded"></div>
+            </div>
+            <div v-for="n in 5" :key="n" class="flex items-center justify-between py-3">
+                <div class="flex items-center gap-3">
+                    <div class="skeleton w-10 h-10 rounded"></div>
+                    <div class="space-y-2">
+                        <div class="skeleton h-4 w-36 rounded"></div>
+                        <div class="skeleton h-3 w-20 rounded"></div>
+                    </div>
+                </div>
+                <div class="skeleton h-5 w-24 rounded"></div>
+                <div class="skeleton h-5 w-20 rounded"></div>
+                <div class="skeleton h-6 w-16 rounded"></div>
+                <div class="skeleton h-5 w-14 rounded"></div>
+                <div class="flex gap-2">
+                    <div class="skeleton h-8 w-8 rounded-lg"></div>
+                    <div class="skeleton h-8 w-8 rounded-lg"></div>
+                </div>
+            </div>
         </div>
 
         <!-- ERROR STATE -->
@@ -148,8 +181,8 @@
                                         </svg>
                                     </button>
 
-                                    <!-- Tombol Hapus: HANYA MUNCUL JIKA ROLE ADALAH PEMILIK -->
-                                    <button v-if="isOwner" @click="confirmDelete(product)" title="Hapus Product"
+                                    <!-- Tombol Hapus (Pemilik memiliki akses penuh) -->
+                                    <button @click="confirmDelete(product)" title="Hapus Product"
                                         class="p-2 rounded-lg bg-[#9b3a2e]/10 text-[#9b3a2e] hover:bg-[#9b3a2e] hover:text-[#faf6ee] active:scale-95 transition-all duration-150">
 
                                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24"
@@ -299,14 +332,15 @@
             </div>
         </Teleport>
 
-        <!-- MODAL CONFIRM DELETE (CUSTOM) -->
+        <!-- MODAL CONFIRM DELETE -->
         <Teleport to="body">
-            <div v-if="productToDelete && isOwner"
+            <div v-if="productToDelete"
                 class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
                 @click.self="cancelDelete">
                 <div class="ticket-card w-full max-w-sm p-6 space-y-4">
                     <div class="text-center space-y-2">
-                        <div class="w-12 h-12 rounded-full bg-[#9b3a2e]/10 text-[#9b3a2e] flex items-center justify-center mx-auto">
+                        <div
+                            class="w-12 h-12 rounded-full bg-[#9b3a2e]/10 text-[#9b3a2e] flex items-center justify-center mx-auto">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24"
                                 stroke="currentColor" stroke-width="2">
                                 <polyline points="3 6 5 6 21 6"></polyline>
@@ -345,11 +379,8 @@
 </template>
 
 <script setup>
-const { user } = useAuth()
-
-// Cek apakah role user yang sedang login adalah PEMILIK
-const isOwner = computed(() => {
-    return user.value?.role?.toUpperCase() === 'PEMILIK'
+definePageMeta({
+    middleware: ['auth']
 })
 
 const {
@@ -373,7 +404,7 @@ const searchQuery = ref('')
 const selectedCategory = ref('')
 const selectedStatus = ref('')
 
-// Debouncing Search (Mencegah Spam API saat Mengetik)
+// Debouncing Search
 const debouncedSearch = ref('')
 let searchTimeout = null
 watch(searchQuery, (newVal) => {
@@ -411,9 +442,9 @@ function formatCurrency(val) {
     return 'Rp ' + Number(val).toLocaleString('id-ID')
 }
 
-// --- Alert / Toast State (Custom, menggantikan SweetAlert2) ---
+// --- Alert / Toast State ---
 const alertMessage = ref('')
-const alertType = ref('success') // 'success' | 'error'
+const alertType = ref('success')
 const showAlert = ref(false)
 
 function triggerAlert(msg, type = 'success') {
@@ -425,13 +456,12 @@ function triggerAlert(msg, type = 'success') {
     }, 3000)
 }
 
-// --- Simpan Produk (Tambah / Edit) dengan Toast Custom ---
+// --- Simpan Produk ---
 async function handleSaveProduct() {
     const wasEditing = !!editingProduct.value
 
     await saveProduct(refreshProducts)
 
-    // Jika tidak ada formError setelah proses, anggap berhasil
     if (!formError.value) {
         triggerAlert(
             wasEditing ? 'Produk berhasil diperbarui!' : 'Produk berhasil ditambahkan!',
@@ -440,17 +470,11 @@ async function handleSaveProduct() {
     }
 }
 
-// --- Konfirmasi Hapus Produk (Modal Custom) dengan Toast Custom ---
+// --- Konfirmasi Hapus Produk (Pemilik) ---
 const productToDelete = ref(null)
 const isDeleting = ref(false)
 
 function confirmDelete(product) {
-    // Keamanan tambahan di frontend: Jika bukan pemilik, hentikan fungsi
-    if (!isOwner.value) {
-        triggerAlert('Akses ditolak. Hanya Pemilik yang dapat menghapus produk.', 'error')
-        return
-    }
-
     if (isDeleting.value) return
     productToDelete.value = product
 }
@@ -461,7 +485,7 @@ function cancelDelete() {
 }
 
 async function executeDelete() {
-    if (!isOwner.value || !productToDelete.value || isDeleting.value) return
+    if (!productToDelete.value || isDeleting.value) return
 
     const product = productToDelete.value
     isDeleting.value = true
@@ -480,21 +504,21 @@ async function executeDelete() {
 
 <style scoped>
 .btn-cancel {
-  background: transparent;
-  border: 1.5px solid rgba(43, 27, 18, 0.2);
-  color: #8A7A68;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
+    background: transparent;
+    border: 1.5px solid rgba(43, 27, 18, 0.2);
+    color: #8A7A68;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
 }
 
 .btn-cancel:hover {
-  background: #9b3a2e;
-  border-color: #9b3a2e;
-  color: #faf6ee;
-  transform: translateY(-1px);
+    background: #9b3a2e;
+    border-color: #9b3a2e;
+    color: #faf6ee;
+    transform: translateY(-1px);
 }
 
 .ticket-card {
@@ -548,12 +572,12 @@ async function executeDelete() {
 /* TOAST TRANSITION */
 .slide-fade-enter-active,
 .slide-fade-leave-active {
-  transition: all 0.25s ease;
+    transition: all 0.25s ease;
 }
 
 .slide-fade-enter-from,
 .slide-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
+    opacity: 0;
+    transform: translateY(-6px);
 }
 </style>

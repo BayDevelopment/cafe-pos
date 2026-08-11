@@ -1,8 +1,25 @@
 // server/api/dashboard/stats.ts
 export default defineEventHandler(async (event) => {
   try {
-    const totalProduk = await prisma.product.count()
-    const totalKaryawan = await prisma.user.count()
+    // 1. Ambil data user yang sedang login (pastikan middleware auth Anda menyimpannya di event.context.user)
+    const user = event.context.user
+
+    if (!user) {
+      throw createError({
+        statusCode: 401,
+        message: 'Unauthorized: Silakan login terlebih dahulu.',
+      })
+    }
+
+    // 2. Hitung statistik dasar (dapat diakses Kasir & Pemilik)
+    const totalProduk = await prisma.product.count({
+      where: { isActive: true },
+    })
+
+    // Menghitung total karyawan aktif dari tabel Employee
+    const totalKaryawan = await prisma.employee.count({
+      where: { status: 'AKTIF' },
+    })
 
     // Rentang hari ini
     const startOfDay = new Date()
@@ -11,9 +28,11 @@ export default defineEventHandler(async (event) => {
     const endOfDay = new Date()
     endOfDay.setHours(23, 59, 59, 999)
 
+    // Hitung pesanan hari ini yang berstatus PAID
     const totalPesananHariIni = await prisma.order.count({
       where: {
         createdAt: { gte: startOfDay, lte: endOfDay },
+        status: 'PAID',
       },
     })
 
@@ -26,6 +45,7 @@ export default defineEventHandler(async (event) => {
     const totalPesananKemarin = await prisma.order.count({
       where: {
         createdAt: { gte: startOfYesterday, lte: endOfYesterday },
+        status: 'PAID',
       },
     })
 
@@ -37,7 +57,7 @@ export default defineEventHandler(async (event) => {
       pesananGrowth = 100
     }
 
-    // Generate data 7 hari terakhir untuk grafik
+    // Generate data 7 hari terakhir untuk grafik (hanya pesanan PAID)
     const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab']
     const weeklyData = []
 
@@ -52,6 +72,7 @@ export default defineEventHandler(async (event) => {
       const count = await prisma.order.count({
         where: {
           createdAt: { gte: dStart, lte: dEnd },
+          status: 'PAID',
         },
       })
 
@@ -61,13 +82,42 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    return {
+    // 3. Objek data dasar untuk Kasir
+    const baseStats: any = {
       totalPesananHariIni,
       pesananGrowth,
       totalProduk,
       totalKaryawan,
       weeklyData,
     }
+
+    // 4. KHUSUS ROLE PEMILIK: Tambahkan data finansial & stok kritis
+    if (user.role === 'PEMILIK') {
+      const aggregateOmzet = await prisma.order.aggregate({
+        where: {
+          createdAt: { gte: startOfDay, lte: endOfDay },
+          status: 'PAID',
+        },
+        _sum: {
+          totalAmount: true, // Sesuai dengan kolom di schema.prisma
+        },
+      })
+
+      const stokKritis = await prisma.product.count({
+        where: {
+          stock: { lte: 5 }, // Produk dengan sisa stok <= 5
+          isActive: true,
+        },
+      })
+
+      // Konversi Prisma Decimal ke tipe number agar aman dikirim ke frontend
+      baseStats.totalOmzet = Number(aggregateOmzet._sum.totalAmount || 0)
+      baseStats.stokKritis = stokKritis
+      baseStats.totalTransaksi = totalPesananHariIni
+    }
+
+    return baseStats
+
   } catch (error: any) {
     throw createError({
       statusCode: 500,

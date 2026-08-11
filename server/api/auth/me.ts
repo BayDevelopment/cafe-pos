@@ -2,6 +2,12 @@
 import jwt from "jsonwebtoken";
 import { db } from "../../utils/db";
 
+interface JwtPayload {
+  id: string;
+  email: string;
+  role: string;
+}
+
 export default defineEventHandler(async (event) => {
   const token = getCookie(event, "auth_token");
 
@@ -14,11 +20,11 @@ export default defineEventHandler(async (event) => {
 
   try {
     const jwtSecret = process.env.JWT_SECRET || "fallback-secret-key-kedaikopi";
-    const decoded = jwt.verify(token, jwtSecret) as { userId: string; role: string };
+    const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
 
     // Ambil data user terbaru dari database, bukan cuma dari isi token
     const user = await db.user.findUnique({
-      where: { id: decoded.userId },
+      where: { id: decoded.id },
       select: {
         id: true,
         name: true,

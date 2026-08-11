@@ -16,7 +16,8 @@
 
           <!-- Header -->
           <div class="px-8 pt-8 pb-6 text-center">
-            <div class="inline-flex items-center gap-1.5 mono label-xs px-3 py-1.5 rounded-full bg-[#9b3a2e] text-[#faf6ee] mb-4">
+            <div
+              class="inline-flex items-center gap-1.5 mono label-xs px-3 py-1.5 rounded-full bg-[#9b3a2e] text-[#faf6ee] mb-4">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M12 2 4 6v6c0 5 3.4 8.7 8 10 4.6-1.3 8-5 8-10V6l-8-4Z" stroke="currentColor" stroke-width="2"
                   stroke-linejoin="round" />
@@ -44,6 +45,10 @@
           <!-- Body -->
           <div class="px-8 pt-6 pb-8">
 
+            <div v-if="successMessage" role="status" aria-live="polite" class="stamp-success mb-5">
+              <span>{{ successMessage }}</span>
+            </div>
+
             <div v-if="errorMessage" role="alert" aria-live="assertive" class="stamp mb-5">
               <span>DITOLAK — {{ errorMessage }}</span>
             </div>
@@ -57,13 +62,13 @@
 
               <div>
                 <label for="password" class="mono label-xs block text-[#8A7A68] mb-1.5">Kata Sandi</label>
-                <input id="password" v-model="form.password" type="password" required
-                  autocomplete="current-password" placeholder="••••••••" class="field" />
+                <input id="password" v-model="form.password" type="password" required autocomplete="current-password"
+                  placeholder="••••••••" class="field" />
               </div>
 
               <button type="submit" :disabled="isLoading" class="btn-stamp mono mt-2">
                 <span v-if="isLoading" class="dot-spin" aria-hidden="true"></span>
-                {{ isLoading ? 'MEMVERIFIKASI…' : 'MASUK KE DASHBOARD' }}
+                {{ successMessage ? 'MENGALIHKAN…' : (isLoading ? 'MEMVERIFIKASI…' : 'MASUK KE DASHBOARD') }}
               </button>
             </form>
 
@@ -88,44 +93,77 @@
 
 <script setup>
 definePageMeta({
-    middleware: ['auth']
+  layout: false
 })
 
 useHead({
-    link: [
-        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap' }
-    ]
+  link: [
+    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap' }
+  ]
 })
 
-const { setUser } = useAuth()
+// Pastikan useAuth benar-benar tersedia, jika tidak ada, beri fallback kosong agar tidak error JS
+const { setUser, fetchUser } = useAuth ? useAuth() : { setUser: null, fetchUser: null }
 
 const form = ref({ email: '', password: '' })
 const isLoading = ref(false)
 const errorMessage = ref('')
-const router = useRouter()
+const successMessage = ref('')
 
 const handleLogin = async () => {
   isLoading.value = true
   errorMessage.value = ''
+  successMessage.value = ''
 
   try {
+    console.log('[DEBUG] 1. Mengirim request ke /api/auth/login...')
+
     const res = await $fetch('/api/auth/login', {
       method: 'POST',
       body: form.value
     })
 
-    if (res.success) {
-      // Role di schema: PEMILIK / KASIR — bukan "OWNER"
-      if (res.role !== 'PEMILIK') {
-        errorMessage.value = 'Akses ditolak, akun ini bukan hak akses pemilik toko.'
+    console.log('[DEBUG] 2. Response dari server diterima:', res)
+
+    if (res?.success) {
+      const rawRole = res.role || res.user?.role || res.data?.role || ''
+      const userRole = String(rawRole).toUpperCase()
+
+      console.log('[DEBUG] 3. Role terdeteksi:', userRole)
+
+      if (userRole !== 'PEMILIK' && userRole !== 'OWNER') {
+        errorMessage.value = `Akses ditolak, akun ini ber-role "${rawRole}".`
+        isLoading.value = false
         return
       }
-      router.push('/owner/dashboard')
+
+      console.log('[DEBUG] 4. Role aman, memperbarui state auth...')
+      try {
+        if (typeof setUser === 'function' && (res.user || res.data)) {
+          setUser(res.user || res.data)
+        } else if (typeof fetchUser === 'function') {
+          await fetchUser()
+        }
+      } catch (authError) {
+        console.warn('[DEBUG] Gagal update state auth (Abaikan jika redirect jalan):', authError)
+      }
+
+      console.log('[DEBUG] 5. Menampilkan pesan sukses, lalu mengalihkan ke Dashboard...')
+      successMessage.value = 'Login berhasil, mengalihkan ke dashboard...'
+
+      setTimeout(() => {
+        window.location.href = '/owner/dashboard'
+      }, 900)
+    } else {
+      console.warn('[DEBUG] Server membalas 200 OK, tapi tidak ada status success: true', res)
+      errorMessage.value = 'Format respon dari server tidak valid.'
+      isLoading.value = false
     }
   } catch (error) {
-    errorMessage.value = error.data?.message || 'Email atau kata sandi salah!'
-  } finally {
+    console.error('[DEBUG] 6. Error tertangkap (Crash/Ditolak):', error)
+    // Tangkap pesan error dari server Nitro (error.data.message) atau error bawaan (error.message)
+    errorMessage.value = error.data?.message || error.message || 'Server gagal merespon!'
     isLoading.value = false
   }
 }
@@ -245,6 +283,21 @@ const handleLogin = async () => {
   transform: rotate(-1deg);
   text-align: center;
   background: rgba(155, 58, 46, 0.06);
+}
+
+.stamp-success {
+  border: 1.5px solid #2f7a4d;
+  color: #2f7a4d;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.55rem 0.75rem;
+  border-radius: 3px;
+  transform: rotate(-1deg);
+  text-align: center;
+  background: rgba(47, 122, 77, 0.06);
 }
 
 .btn-stamp {

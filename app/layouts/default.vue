@@ -8,10 +8,9 @@
     <!-- KONTEN UTAMA -->
     <div class="flex-1 flex flex-col min-w-0 bg-[#f8f5ee] rounded-l-3xl md:rounded-none overflow-hidden shadow-2xl">
 
-      <!-- TOPBAR (mobile + desktop) - Tetap Fixed/Sticky di Atas -->
+      <!-- TOPBAR (mobile + desktop) -->
       <header
         class="h-16 bg-[#faf6ee] border-b border-[#2b1b12]/10 flex items-center justify-between px-4 md:px-8 sticky top-0 z-30 flex-shrink-0">
-        <!-- Kiri: hamburger (mobile) + brand / greeting -->
         <div class="flex items-center gap-3 min-w-0">
           <button
             class="md:hidden text-[#2b1b12] focus:outline-none p-1.5 rounded-lg hover:bg-[#2b1b12]/5 transition flex-shrink-0"
@@ -20,10 +19,10 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <span class="md:hidden font-bold text-[#2b1b12]  text-sm tracking-widest truncate">
+          <span class="md:hidden font-bold text-[#2b1b12] text-sm tracking-widest truncate">
             KEDAI KOPI POS
           </span>
-          <span class="hidden md:inline  text-xs text-[#8A7A68] tracking-wide truncate">
+          <span class="hidden md:inline text-xs text-[#8A7A68] tracking-wide truncate">
             <template v-if="pendingUser">Memuat data pengguna...</template>
             <template v-else>Selamat datang kembali, {{ firstName }} 👋</template>
           </span>
@@ -31,7 +30,6 @@
 
         <!-- Kanan: profile dropdown -->
         <div ref="profileMenuRef" class="relative flex-shrink-0">
-          <!-- Skeleton (saat data user masih dimuat) -->
           <div v-if="pendingUser" class="flex items-center gap-2 md:gap-3 pl-1.5 md:pl-2 pr-1.5 md:pr-3 py-1.5">
             <div class="w-9 h-9 rounded-full bg-[#2b1b12]/10 animate-pulse flex-shrink-0"></div>
             <div class="hidden sm:block space-y-1.5">
@@ -40,7 +38,6 @@
             </div>
           </div>
 
-          <!-- Tombol Profil (setelah data siap) -->
           <button v-else
             class="flex items-center gap-2 md:gap-3 pl-1.5 md:pl-2 pr-1.5 md:pr-3 py-1.5 rounded-full hover:bg-[#2b1b12]/5 transition"
             @click="isProfileOpen = !isProfileOpen">
@@ -67,7 +64,6 @@
                 <p class="text-xs text-[#8A7A68] truncate">{{ email }}</p>
               </div>
 
-              <!-- Ubah path ke /profile sesuai nama file profile.vue Anda -->
               <NuxtLink to="/kasir/profile"
                 class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-[#2b1b12] hover:bg-[#2b1b12]/5 transition"
                 @click="isProfileOpen = false">
@@ -92,16 +88,14 @@
         </div>
       </header>
 
-      <!-- AREA SCROLL UTAMA (Menampung Slot & Footer) -->
+      <!-- AREA SCROLL UTAMA -->
       <main class="flex-1 overflow-y-auto flex flex-col">
-        <!-- Wrapper Konten: Mendorong footer ke bawah jika konten sedikit -->
         <div class="flex-1">
           <slot />
         </div>
 
-        <!-- FOOTER: Atas-bawah di Mobile & Tablet, Menyamping di Desktop -->
         <footer
-          class="flex-shrink-0 border-t border-[#2b1b12]/10 bg-[#faf6ee] px-4 md:px-8 py-4 flex flex-col md:flex-row items-center justify-between gap-2 text-xs  text-[#8A7A68] text-center md:text-left">
+          class="flex-shrink-0 border-t border-[#2b1b12]/10 bg-[#faf6ee] px-4 md:px-8 py-4 flex flex-col md:flex-row items-center justify-between gap-2 text-xs text-[#8A7A68] text-center md:text-left">
           <span>© {{ currentYear }} Kedai Kopi POS. Seluruh hak cipta dilindungi.</span>
           <span>v1.0.0 · Dibuat di Indonesia</span>
         </footer>
@@ -116,22 +110,17 @@ import AppSidebar from '~/components/AppSidebar.vue'
 
 const isSidebarOpen = ref(false)
 const isProfileOpen = ref(false)
-const pendingUser = ref(true)
 const profileMenuRef = ref<HTMLElement | null>(null)
 
-// 1. Ambil fetchUser dari composable
 const { user, fetchUser, logout } = useAuth()
+const pendingUser = computed(() => !user.value)
 
-// 2. Jalankan fetchUser saat komponen dimuat (jika state user masih kosong)
 onMounted(async () => {
-  pendingUser.value = true
   try {
     if (!user.value) {
       await fetchUser()
     }
-  } finally {
-    pendingUser.value = false
-  }
+  } finally {}
 
   document.addEventListener('click', handleClickOutside)
 })
@@ -140,13 +129,11 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', handleClickOutside)
 })
 
-// 3. Pengecekan field nama yang lebih fleksibel
 const fullName = computed(() => {
   if (!user.value) return 'Pengguna'
   return user.value.name || user.value.nama || user.value.full_name || user.value.username || 'Pengguna'
 })
 
-// 4. Pengecekan field email
 const email = computed(() => {
   if (!user.value) return '-'
   return user.value.email || user.value.username || '-'
@@ -167,7 +154,15 @@ const currentYear = new Date().getFullYear()
 
 async function handleLogout() {
   isProfileOpen.value = false
+  const role = user.value?.role?.toUpperCase()
+
   await logout()
+
+  if (role === 'PEMILIK') {
+    await navigateTo('/owner/login')
+  } else {
+    await navigateTo('/kasir/login')
+  }
 }
 
 function handleClickOutside(e: MouseEvent) {

@@ -1,9 +1,12 @@
 // server/api/categories/index.ts
+import jwt from 'jsonwebtoken'
+import { getCookie } from 'h3'
+
 export default defineEventHandler(async (event) => {
   const method = getMethod(event)
   const validNamePattern = /^[a-zA-Z0-9\s&\-/()]+$/
 
-  // GET: Fetch Data Kategori dengan Search & Pagination
+  // GET: Fetch Data Kategori dengan Search & Pagination (Bisa diakses Kasir & Pemilik)
   if (method === 'GET') {
     try {
       const query = getQuery(event)
@@ -59,8 +62,37 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // POST: Tambah Kategori Baru
+  // POST: Tambah Kategori Baru - HANYA PEMILIK
   if (method === 'POST') {
+    // Ambil token JWT dari cookie 'auth_token'
+    const token = getCookie(event, 'auth_token')
+    
+    if (!token) {
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Akses ditolak. Anda belum login atau sesi telah habis.',
+      })
+    }
+
+    try {
+      const jwtSecret = process.env.JWT_SECRET || 'fallback-secret-key-kedaikopi'
+      const decoded = jwt.verify(token, jwtSecret) as any
+
+      // Pastikan role yang masuk adalah PEMILIK
+      if (String(decoded.role || '').toUpperCase() !== 'PEMILIK') {
+        throw createError({
+          statusCode: 403,
+          statusMessage: 'Akses ditolak. Hanya Pemilik yang diizinkan menambah kategori.',
+        })
+      }
+    } catch (error: any) {
+      if (error.statusCode) throw error // Lempar kembali error kustom di atas
+      throw createError({
+        statusCode: 401,
+        statusMessage: 'Sesi login tidak valid. Silakan login kembali.',
+      })
+    }
+
     const body = await readBody(event)
     const trimmedName = typeof body.name === 'string' ? body.name.trim() : ''
 
@@ -90,4 +122,9 @@ export default defineEventHandler(async (event) => {
       })
     }
   }
+
+  throw createError({
+    statusCode: 405,
+    statusMessage: 'Method not allowed'
+  })
 })

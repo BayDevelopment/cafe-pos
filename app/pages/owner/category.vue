@@ -392,9 +392,11 @@ async function submitForm() {
 
     const method = editingCategory.value ? 'PUT' : 'POST'
 
+    // ✨ Ditambahkan: credentials: 'include' untuk otentikasi role PEMILIK di backend
     await $fetch(endpoint, {
       method,
-      body: { name: trimmedName }
+      body: { name: trimmedName },
+      credentials: 'include' 
     })
 
     await refreshCategories()
@@ -437,7 +439,12 @@ async function executeDelete() {
   isDeleting.value = true
 
   try {
-    await $fetch(`/api/categories/${category.id}`, { method: 'DELETE' })
+    // ✨ Ditambahkan: credentials: 'include' pada saat delete data
+    await $fetch(`/api/categories/${category.id}`, { 
+      method: 'DELETE',
+      credentials: 'include' 
+    })
+    
     await refreshCategories()
     categoryToDelete.value = null
     triggerAlert(`Kategori "${category.name}" berhasil dihapus!`, 'success')

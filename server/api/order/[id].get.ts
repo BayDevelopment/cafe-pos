@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
   if (!user) {
     throw createError({
       statusCode: 401,
-      statusMessage: "Anda harus login untuk melihat data transaksi",
+      statusMessage: "Anda harus login untuk mengakses data transaksi",
     });
   }
 
@@ -56,44 +56,99 @@ export default defineEventHandler(async (event) => {
     });
   }
 
+  const method = event.method;
+  const orderId = Number(id);
+
   try {
-    // 2. Query data order + relasi cashier (User) & products
-    const order = await db.order.findUnique({
-      where: { id: Number(id) },
-      include: {
-        cashier: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
+    // --- FITUR 1: HANDLE METHOD GET (Melihat Detail Order) ---
+    if (method === "GET") {
+      const order = await db.order.findUnique({
+        where: { id: orderId },
+        include: {
+          cashier: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
           },
-        },
-        orderItems: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                price: true,
+          orderItems: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                },
               },
             },
           },
         },
-      },
-    });
-
-    if (!order) {
-      throw createError({
-        statusCode: 404,
-        statusMessage: "Pesanan tidak ditemukan",
       });
+
+      if (!order) {
+        throw createError({
+          statusCode: 404,
+          statusMessage: "Pesanan tidak ditemukan",
+        });
+      }
+
+      return {
+        success: true,
+        data: order,
+      };
     }
 
-    return {
-      success: true,
-      data: order,
-    };
+    // --- FITUR 2: HANDLE METHOD DELETE (Menghapus Order - Khusus PEMILIK) ---
+    if (method === "DELETE") {
+      // Validasi ketat role: Hanya PEMILIK yang boleh menghapus order
+      if (user.role !== "PEMILIK") {
+        throw createError({
+          statusCode: 403,
+          statusMessage: "Akses ditolak. Hanya PEMILIK yang berhak menghapus data transaksi.",
+        });
+      }
+
+      // Pastikan order yang ingin dihapus benar-benar ada
+      const existingOrder = await db.order.findUnique({
+        where: { id: orderId },
+        include: { orderItems: true },
+      });
+
+      if (!existingOrder) {
+        throw createError({
+          statusCode: 404,
+          statusMessage: "Pesanan yang akan dihapus tidak ditemukan",
+        });
+      }
+
+      // Lakukan transaksi penghapusan (Opsional: Jika ingin stok dikembalikan saat order dihapus, 
+      // Anda bisa menambahkan logika loop pengembalian stok di dalam db.$transaction)
+      await db.$transaction(async (tx) => {
+        // Hapus relasi order items terlebih dahulu jika database Anda belum CASCADE delete
+        await tx.orderItem.deleteMany({
+          where: { orderId: orderId },
+        });
+
+        // Hapus order utama
+        await tx.order.delete({
+          where: { id: orderId },
+        });
+      });
+
+      return {
+        success: true,
+        message: `Pesanan dengan ID #${orderId} berhasil dihapus oleh Pemilik.`,
+      };
+    }
+
+    // Jika method selain GET dan DELETE
+    throw createError({
+      statusCode: 405,
+      statusMessage: "Method not allowed",
+    });
+
   } catch (error: any) {
     if (error.statusCode) {
       throw error;
@@ -101,7 +156,7 @@ export default defineEventHandler(async (event) => {
 
     throw createError({
       statusCode: 500,
-      statusMessage: "Gagal mengambil data pesanan: " + (error?.message || "Internal Server Error"),
+      statusMessage: "Terjadi kesalahan server: " + (error?.message || "Internal Server Error"),
     });
   }
 });

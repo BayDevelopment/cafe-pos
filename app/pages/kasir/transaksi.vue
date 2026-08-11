@@ -1,3 +1,4 @@
+<!-- app/pages/kasir/riwayat.vue -->
 <template>
   <div class="p-4 sm:p-6 md:p-10 max-w-6xl mx-auto space-y-6 md:space-y-8 font-sans relative">
 
@@ -16,11 +17,13 @@
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div class="flex items-center gap-2 mb-1">
-            <span class="mono label-xs px-2 py-0.5 rounded bg-[#2b1b12] text-[#faf6ee]">KASIR</span>
+            <span class="mono label-xs px-2 py-0.5 rounded bg-[#2b1b12] text-[#faf6ee]">{{ isOwner ? 'PEMILIK' : 'KASIR' }}</span>
             <span class="mono label-xs text-[#8A7A68]">RIWAYAT PENJUALAN</span>
           </div>
           <h1 class="display text-xl sm:text-2xl text-[#2b1b12] font-bold">Daftar Transaksi</h1>
-          <p class="mono text-xs text-[#8A7A68] mt-0.5">Pantau dan kelola semua histori pembayaran pelanggan.</p>
+          <p class="mono text-xs text-[#8A7A68] mt-0.5">
+            {{ isOwner ? 'Pantau dan kelola semua histori pembayaran pelanggan.' : 'Menampilkan riwayat transaksi khusus hari ini.' }}
+          </p>
         </div>
 
         <div class="flex items-center gap-2 self-start md:self-auto">
@@ -165,8 +168,8 @@
           </button>
         </template>
         <template v-else>
-          <p class="mono text-xs text-[#2b1b12] font-semibold">Belum ada transaksi.</p>
-          <p class="mono text-xs text-[#8A7A68]">Transaksi akan muncul otomatis di sini begitu pembayaran berhasil.</p>
+          <p class="mono text-xs text-[#2b1b12] font-semibold">Belum ada transaksi untuk hari ini.</p>
+          <p class="mono text-xs text-[#8A7A68]">Transaksi hari ini akan muncul otomatis di sini.</p>
         </template>
       </div>
 
@@ -228,8 +231,8 @@
                         </svg>
                       </button>
 
-                      <!-- ICON DELETE / HAPUS -->
-                      <button type="button" class="p-1.5 rounded text-[#9b3a2e] hover:bg-[#9b3a2e]/10 transition"
+                      <!-- ICON DELETE / HAPUS — hanya tampil untuk PEMILIK, disembunyikan total dari DOM untuk KASIR -->
+                      <button v-if="isOwner" type="button" class="p-1.5 rounded text-[#9b3a2e] hover:bg-[#9b3a2e]/10 transition"
                         title="Hapus Transaksi" @click="confirmDelete(trx)">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24"
                           stroke="currentColor" stroke-width="1.8">
@@ -276,7 +279,8 @@
                   </svg>
                 </button>
 
-                <button type="button" class="p-1 rounded text-[#9b3a2e] hover:bg-[#9b3a2e]/10 transition-colors"
+                <!-- Tombol hapus mobile — hanya untuk PEMILIK -->
+                <button v-if="isOwner" type="button" class="p-1 rounded text-[#9b3a2e] hover:bg-[#9b3a2e]/10 transition-colors"
                   title="Hapus Transaksi" @click="confirmDelete(trx)">
                   <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24"
                     stroke="currentColor" stroke-width="1.8">
@@ -324,9 +328,9 @@
       </template>
     </template>
 
-    <!-- MODAL CONFIRM DELETE -->
+    <!-- MODAL CONFIRM DELETE — hanya bisa muncul untuk PEMILIK -->
     <Teleport to="body">
-      <div v-if="trxToDelete"
+      <div v-if="trxToDelete && isOwner"
         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
         @click.self="trxToDelete = null">
         <div class="ticket-card w-full max-w-sm p-6 space-y-4">
@@ -481,6 +485,15 @@ useHead({
 
 // --- Token & Cookie Auth ---
 const token = useCookie('auth_token')
+const { user } = useAuth()
+
+// Cek apakah role user yang sedang login adalah PEMILIK
+const isOwner = computed(() => {
+  return user.value?.role?.toUpperCase() === 'PEMILIK'
+})
+
+// Dapatkan tanggal hari ini format YYYY-MM-DD untuk pembatasan kasir
+const todayDateString = new Date().toISOString().split('T')[0]
 
 // --- Pagination & filter state ---
 const page = ref(1)
@@ -518,14 +531,24 @@ function clearFilters() {
   selectedPayment.value = ''
 }
 
-// --- Data Fetching dengan Header Authorization ---
-const queryParams = computed(() => ({
-  page: page.value,
-  limit: pageSize.value,
-  search: debouncedSearch.value || undefined,
-  status: selectedStatus.value || undefined,
-  paymentMethod: selectedPayment.value || undefined
-}))
+// --- Data Fetching dengan Header Authorization dan Filter Tanggal Kasir ---
+const queryParams = computed(() => {
+  const params = {
+    page: page.value,
+    limit: pageSize.value,
+    search: debouncedSearch.value || undefined,
+    status: selectedStatus.value || undefined,
+    paymentMethod: selectedPayment.value || undefined
+  }
+
+  // Jika bukan owner (berarti kasir), paksa filter hanya untuk hari ini
+  if (!isOwner.value) {
+    params.startDate = todayDateString
+    params.endDate = todayDateString
+  }
+
+  return params
+})
 
 const { data: response, pending, error: fetchError, refresh: refreshTransactions } = await useFetch(
   '/api/transactions',
@@ -538,12 +561,23 @@ const { data: response, pending, error: fetchError, refresh: refreshTransactions
 
 const rawTransactions = computed(() => response.value?.data || [])
 
-// Multi-field Client-Side Search Fallback (Memastikan jika backend tidak mendukung pencarian fleksibel)
+// Multi-field Client-Side Search Fallback + Filter Kasir Hari Ini
 const filteredTransactions = computed(() => {
-  const query = debouncedSearch.value.toLowerCase()
-  if (!query) return rawTransactions.value
+  let list = rawTransactions.value
 
-  return rawTransactions.value.filter((trx) => {
+  // Pengaman tambahan di sisi frontend untuk kasir (hanya tampilkan hari ini)
+  if (!isOwner.value) {
+    list = list.filter((trx) => {
+      if (!trx.createdAt) return false
+      const trxDate = new Date(trx.createdAt).toISOString().split('T')[0]
+      return trxDate === todayDateString
+    })
+  }
+
+  const query = debouncedSearch.value.toLowerCase()
+  if (!query) return list
+
+  return list.filter((trx) => {
     const invoiceStr = String(trx.invoiceNo || trx.id || '').toLowerCase()
     const customerStr = String(trx.customerName || 'pelanggan umum').toLowerCase()
     const cashierStr = String(trx.cashier?.name || trx.cashierName || '').toLowerCase()
@@ -718,11 +752,17 @@ const trxToDelete = ref(null)
 const isDeleting = ref(false)
 
 function confirmDelete(trx) {
+  // Pengaman ganda: walau tombolnya sudah tidak dirender untuk KASIR (v-if="isOwner"),
+  // fungsi ini tetap menolak aksi hapus jika somehow terpanggil oleh non-owner.
+  if (!isOwner.value) {
+    triggerAlert('Akses ditolak. Hanya Pemilik yang dapat menghapus transaksi.', 'error')
+    return
+  }
   trxToDelete.value = trx
 }
 
 async function deleteTransaction() {
-  if (!trxToDelete.value) return
+  if (!isOwner.value || !trxToDelete.value) return
   isDeleting.value = true
 
   const idToDelete = trxToDelete.value.id
@@ -732,68 +772,14 @@ async function deleteTransaction() {
       method: 'DELETE',
       headers: token.value ? { Authorization: `Bearer ${token.value}` } : {}
     })
-
+    triggerAlert('Transaksi berhasil dihapus', 'success')
     trxToDelete.value = null
-    triggerAlert('Riwayat transaksi berhasil dihapus!', 'success')
-
-    if (transactions.value.length === 1 && page.value > 1) {
-      page.value -= 1
-    } else {
-      await clearNuxtData('transactions-list')
-      await refreshTransactions()
-    }
-  } catch (err) {
-    triggerAlert(err?.data?.statusMessage || 'Gagal menghapus transaksi.', 'error')
+    refreshTransactions()
+  } catch (error) {
+    triggerAlert(error?.data?.statusMessage || 'Gagal menghapus transaksi', 'error')
   } finally {
     isDeleting.value = false
   }
-}
-
-// --- Formatters & Item Helpers ---
-function formatInvoiceNo(id) {
-  if (!id) return '-'
-  return String(id).padStart(6, '0')
-}
-
-function getItemList(trx) {
-  if (!trx) return []
-  return trx.orderItems || trx.items || []
-}
-
-function getItemName(item) {
-  return item.productName || item.product?.name || 'Produk'
-}
-
-function getItemQty(item) {
-  return Number(item.quantity ?? item.qty) || 0
-}
-
-function calculateSubtotal(trx) {
-  if (trx.subtotal !== undefined && trx.subtotal !== null) {
-    return Number(trx.subtotal)
-  }
-  const items = getItemList(trx)
-  return items.reduce((sum, item) => {
-    return sum + (getItemQty(item) * Number(item.price || 0))
-  }, 0)
-}
-
-function formatRupiah(amount) {
-  if (!amount) return 'Rp 0'
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(amount)
-}
-
-function formatDate(dateString) {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  return new Intl.DateTimeFormat('id-ID', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  }).format(date)
 }
 </script>
 

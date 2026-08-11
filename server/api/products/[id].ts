@@ -1,7 +1,10 @@
+// server/api/products/[id].ts
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { Prisma } from '@prisma/client'
+import jwt from 'jsonwebtoken'
+import { getCookie } from 'h3'
 
 // Helper 1: Cek Magic Bytes (MIME Type Asli dari Isi Buffer)
 function getMimeTypeFromBuffer(buffer: Buffer): string | null {
@@ -19,11 +22,9 @@ function safeDeleteFile(relativePath: string) {
   if (!relativePath || typeof relativePath !== 'string') return
 
   const uploadDir = path.join(process.cwd(), 'public', 'uploads')
-  // Ambil hanya nama file dasar, mengabaikan struktur direktori berbahaya (misal: ../../.env)
   const filename = path.basename(relativePath)
   const fullPath = path.join(uploadDir, filename)
 
-  // Pastikan file yang akan dihapus benar-benar berada di dalam folder public/uploads
   if (fullPath.startsWith(uploadDir) && fs.existsSync(fullPath)) {
     try {
       fs.unlinkSync(fullPath)
@@ -43,8 +44,40 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'ID produk tidak valid' })
   }
 
+  // 2. Proteksi Role: Hanya PEMILIK yang diizinkan melakukan EDIT (PUT) atau HAPUS (DELETE)
+  if (method === 'PUT' || method === 'DELETE') {
+    // Ambil token JWT dari cookie 'auth_token'
+    const token = getCookie(event, 'auth_token')
+    
+    if (!token) {
+      throw createError({
+        statusCode: 401,
+        message: 'Akses ditolak. Anda belum login atau sesi telah habis.',
+      })
+    }
+
+    try {
+      // Verifikasi token (sesuaikan secret key dengan backend login Anda)
+      const jwtSecret = process.env.JWT_SECRET || 'fallback-secret-key-kedaikopi'
+      const decoded = jwt.verify(token, jwtSecret) as any
+
+      // Cek apakah rolenya benar-benar PEMILIK
+      if (String(decoded.role || '').toUpperCase() !== 'PEMILIK') {
+        throw createError({
+          statusCode: 403,
+          message: 'Akses ditolak. Hanya PEMILIK yang diizinkan mengubah atau menghapus produk.',
+        })
+      }
+    } catch (error) {
+      throw createError({
+        statusCode: 401,
+        message: 'Sesi login tidak valid. Silakan login kembali.',
+      })
+    }
+  }
+
   // ==========================================
-  // 1. UPDATE PRODUK (PUT)
+  // 3. UPDATE PRODUK (PUT) - HANYA PEMILIK
   // ==========================================
   if (method === 'PUT') {
     const files = await readMultipartFormData(event)
@@ -52,7 +85,6 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, message: 'Invalid form data' })
     }
 
-    // Ambil data produk lama terlebih dahulu
     const existingProduct = await prisma.product.findUnique({
       where: { id: productId },
     })
@@ -72,7 +104,6 @@ export default defineEventHandler(async (event) => {
 
     let uploadedFile: { filename: string; data: Buffer } | null = null
 
-    // Parse Form Data
     for (const file of files) {
       const fieldName = file.name
       const value = file.data.toString('utf-8')
@@ -93,15 +124,12 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Validasi & Simpan Gambar Baru (Jika Ada)
     if (uploadedFile) {
-      // Validasi Ukuran (Maksimal 1 MB)
       const maxSizeInBytes = 1 * 1024 * 1024
       if (uploadedFile.data.length > maxSizeInBytes) {
         throw createError({ statusCode: 400, message: 'Ukuran gambar maksimal 1 MB' })
       }
 
-      // Validasi Magic Bytes
       const detectedMime = getMimeTypeFromBuffer(uploadedFile.data)
       if (!detectedMime || !['image/png', 'image/jpeg'].includes(detectedMime)) {
         throw createError({
@@ -119,11 +147,9 @@ export default defineEventHandler(async (event) => {
       const randomFileName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${safeExtension}`
       const fullPath = path.join(uploadDir, randomFileName)
 
-      // Write file baru
       fs.writeFileSync(fullPath, uploadedFile.data)
       newImagePath = `/uploads/${randomFileName}`
 
-      // Hapus file gambar lama secara aman jika ada gambar baru
       if (existingProduct.image) {
         safeDeleteFile(existingProduct.image)
       }
@@ -158,16 +184,14 @@ export default defineEventHandler(async (event) => {
   }
 
   // ==========================================
-  // 2. HAPUS PRODUK (DELETE)
+  // 4. HAPUS PRODUK (DELETE) - HANYA PEMILIK
   // ==========================================
   if (method === 'DELETE') {
     try {
-      // Hapus record di database terlebih dahulu secara Atomic
       const deletedProduct = await prisma.product.delete({
         where: { id: productId },
       })
 
-      // Jika berhasil dihapus di DB, baru hapus file gambarnya
       if (deletedProduct.image) {
         safeDeleteFile(deletedProduct.image)
       }
@@ -178,7 +202,6 @@ export default defineEventHandler(async (event) => {
         data: deletedProduct,
       }
     } catch (error: any) {
-      // Tangani jika terjadi Double Click Hapus (Record P2025: Not Found)
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
         throw createError({
           statusCode: 404,

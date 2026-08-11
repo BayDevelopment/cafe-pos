@@ -39,7 +39,15 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // 2. Ambil ID Transaksi dari Parameter URL
+  // 2. Otorisasi: hanya PEMILIK yang boleh menghapus transaksi
+  if (user.role?.toUpperCase() !== "PEMILIK") {
+    throw createError({
+      statusCode: 403,
+      statusMessage: "Akses ditolak. Hanya Pemilik yang dapat menghapus transaksi.",
+    });
+  }
+
+  // 3. Ambil ID Transaksi dari Parameter URL
   const idParam = getRouterParam(event, "id");
   const orderId = Number(idParam);
 
@@ -51,12 +59,25 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    // 3. Hapus OrderItem terkait terlebih dahulu jika tidak set Cascade Delete
+    // 4. Pastikan transaksi memang ada sebelum dihapus
+    const existingOrder = await db.order.findUnique({
+      where: { id: orderId },
+      select: { id: true },
+    });
+
+    if (!existingOrder) {
+      throw createError({
+        statusCode: 404,
+        statusMessage: `Transaksi #${String(orderId).padStart(6, "0")} tidak ditemukan`,
+      });
+    }
+
+    // 5. Hapus OrderItem terkait terlebih dahulu jika tidak set Cascade Delete
     await db.orderItem.deleteMany({
       where: { orderId: orderId },
     });
 
-    // 4. Hapus Order Utama
+    // 6. Hapus Order Utama
     await db.order.delete({
       where: { id: orderId },
     });
@@ -66,6 +87,11 @@ export default defineEventHandler(async (event) => {
       message: `Transaksi #${String(orderId).padStart(6, "0")} berhasil dihapus`,
     };
   } catch (error: any) {
+    // Jika error sudah berupa H3Error (mis. dari createError di atas), lempar apa adanya
+    if (error?.statusCode) {
+      throw error;
+    }
+
     throw createError({
       statusCode: 500,
       statusMessage: "Gagal menghapus transaksi: " + error.message,

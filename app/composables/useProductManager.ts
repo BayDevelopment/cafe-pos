@@ -1,3 +1,4 @@
+// app/composables/useProductManager.ts
 export const useProductManager = () => {
   const isFormOpen = ref(false)
   const isSaving = ref(false)
@@ -58,7 +59,6 @@ export const useProductManager = () => {
     const file = input.files?.[0]
     if (!file) return
 
-    // Validasi Client Side
     const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg']
     if (!allowedTypes.includes(file.type)) {
       formError.value = 'Format file harus PNG atau JPG/JPEG.'
@@ -78,7 +78,7 @@ export const useProductManager = () => {
   }
 
   async function saveProduct(refreshCallback?: Function) {
-    if (isSaving.value) return // Mencegah Double Click
+    if (isSaving.value) return
     formError.value = ''
 
     if (!form.name.trim()) return (formError.value = 'Nama produk wajib diisi.')
@@ -104,7 +104,12 @@ export const useProductManager = () => {
       const url = editingProduct.value ? `/api/products/${editingProduct.value.id}` : '/api/products'
       const method = editingProduct.value ? 'PUT' : 'POST'
 
-      await $fetch(url, { method, body: formData })
+      // Tambahkan credentials: 'include' agar cookies session owner ikut terkirim ke backend
+      await $fetch(url, { 
+        method, 
+        body: formData,
+        credentials: 'include' 
+      })
 
       closeForm()
       if (refreshCallback) refreshCallback()
@@ -116,7 +121,11 @@ export const useProductManager = () => {
   }
 
   async function deleteProduct(product: any, refreshCallback?: Function) {
-    await $fetch(`/api/products/${product.id}`, { method: 'DELETE' })
+    // Tambahkan credentials: 'include' di sini juga
+    await $fetch(`/api/products/${product.id}`, { 
+      method: 'DELETE',
+      credentials: 'include'
+    })
     if (refreshCallback) refreshCallback()
   }
 

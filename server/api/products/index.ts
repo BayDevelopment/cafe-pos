@@ -1,40 +1,65 @@
+// server/api/products/index.ts
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
 import { Prisma } from '@prisma/client'
+import jwt from 'jsonwebtoken'
+import { getCookie } from 'h3'
 
-// Fungsi Helper sederhaana untuk cek Magic Bytes (Signature File) tanpa lib luar
 function getMimeTypeFromBuffer(buffer: Buffer): string | null {
   if (buffer.length < 4) return null
   const hex = buffer.toString('hex', 0, 4).toUpperCase()
-
-  // PNG Magic Bytes: 89 50 4E 47
   if (hex === '89504E47') return 'image/png'
-
-  // JPEG Magic Bytes: FF D8 FF
   if (hex.startsWith('FFD8FF')) return 'image/jpeg'
-
   return null
 }
 
 export default defineEventHandler(async (event) => {
   const method = event.node.req.method
 
-  // 1. GET Products (Tetap sama)
+  // 1. GET Products (Dapat diakses Kasir & Pemilik)
   if (method === 'GET') {
     const query = getQuery(event)
     const page = Number(query.page) || 1
     const limit = Number(query.limit) || 10
     const skip = (page - 1) * limit
 
+    // Ambil parameter filter dari frontend
+    const search = query.search ? String(query.search).trim() : ''
+    const categoryId = query.category ? Number(query.category) : null
+    
+    // Konversi filter status string ('true'/'false') ke boolean
+    let isActive: boolean | undefined = undefined
+    if (query.status === 'true') isActive = true
+    if (query.status === 'false') isActive = false
+
+    // Susun kondisi 'where' secara dinamis untuk Prisma
+    const where: any = {}
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { sku: { contains: search, mode: 'insensitive' } },
+      ]
+    }
+
+    if (categoryId) {
+      where.categoryId = categoryId
+    }
+
+    if (isActive !== undefined) {
+      where.isActive = isActive
+    }
+
     const [products, totalItems] = await Promise.all([
       prisma.product.findMany({
+        where, // Masukkan kondisi filter di sini
         include: { category: true },
         orderBy: { createdAt: 'desc' },
         skip: skip,
         take: limit,
       }),
-      prisma.product.count(),
+      prisma.product.count({ where }), // Hitung total berdasarkan filter yang sama
     ])
 
     return {
@@ -44,13 +69,42 @@ export default defineEventHandler(async (event) => {
         currentPage: page,
         perPage: limit,
         totalItems: totalItems,
-        totalPages: Math.ceil(totalItems / limit),
+        totalPages: Math.ceil(totalItems / limit) || 1,
       },
     }
   }
 
-  // 2. POST Product
+  // 2. POST Product (Hanya untuk ROLE PEMILIK)
   if (method === 'POST') {
+    // Ambil token JWT dari cookie 'auth_token'
+    const token = getCookie(event, 'auth_token')
+    
+    if (!token) {
+      throw createError({
+        statusCode: 401,
+        message: 'Akses ditolak. Anda belum login atau sesi telah habis.',
+      })
+    }
+
+    try {
+      // Verifikasi token (sesuaikan secret key dengan backend login Anda)
+      const jwtSecret = process.env.JWT_SECRET || 'fallback-secret-key-kedaikopi'
+      const decoded = jwt.verify(token, jwtSecret) as any
+
+      // Cek apakah rolenya benar-benar PEMILIK
+      if (String(decoded.role || '').toUpperCase() !== 'PEMILIK') {
+        throw createError({
+          statusCode: 403,
+          message: 'Akses ditolak. Hanya PEMILIK yang diizinkan menambah produk.',
+        })
+      }
+    } catch (error) {
+      throw createError({
+        statusCode: 401,
+        message: 'Sesi login tidak valid. Silakan login kembali.',
+      })
+    }
+
     const files = await readMultipartFormData(event)
     if (!files) {
       throw createError({ statusCode: 400, message: 'Invalid form data' })
@@ -85,7 +139,6 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Validasi Dasar Input Teks
     if (!categoryId || categoryId === 0) {
       throw createError({ statusCode: 400, message: 'Kategori wajib dipilih.' })
     }
@@ -96,11 +149,9 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, message: 'Harga jual wajib lebih dari 0.' })
     }
 
-    // D. Proses & Validasi File Gambar (KEAMANAN KETAT)
     let imagePath: string | null = null
 
     if (uploadedFile) {
-      // 1. Validasi Ukuran File (Maksimal 1 MB)
       const maxSizeInBytes = 1 * 1024 * 1024
       if (uploadedFile.data.length > maxSizeInBytes) {
         throw createError({
@@ -109,7 +160,6 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      // 2. CEK MAGIC BYTES (MIME TYPE ASLI BERDASARKAN ISI FILE)
       const detectedMime = getMimeTypeFromBuffer(uploadedFile.data)
       const allowedMimes = ['image/png', 'image/jpeg']
 
@@ -120,10 +170,7 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      // 3. TENTUKAN EKSTENSI BERDASARKAN MIME TYPE ASLI (Bukan dari Nama File Asli Client!)
       const safeExtension = detectedMime === 'image/png' ? '.png' : '.jpg'
-
-      // 4. CEGAH PATH TRAVERSAL: Buat nama file acak secara total (Gunakan Random UUID / Hex)
       const randomFileName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${safeExtension}`
 
       const uploadDir = path.join(process.cwd(), 'public', 'uploads')
@@ -132,13 +179,10 @@ export default defineEventHandler(async (event) => {
       }
 
       const fullPath = path.join(uploadDir, randomFileName)
-
-      // Simpan File Aman
       fs.writeFileSync(fullPath, uploadedFile.data)
       imagePath = `/uploads/${randomFileName}`
     }
 
-    // E. Simpan ke Database
     try {
       const newProduct = await prisma.product.create({
         data: {
@@ -162,7 +206,6 @@ export default defineEventHandler(async (event) => {
         data: newProduct,
       }
     } catch (error: any) {
-      // Jika terjadi error unik / duplikat dari Database
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw createError({
           statusCode: 400,

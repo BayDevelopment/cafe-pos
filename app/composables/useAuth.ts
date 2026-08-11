@@ -26,6 +26,15 @@ export const useAuth = () => {
         user.value = userData
     }
 
+    // Fungsi baru untuk memperbarui data user secara parsial (misal: ganti nama doang)
+    const updateUser = (newData: Record<string, any>) => {
+        if (user.value) {
+            user.value = { ...user.value, ...newData }
+        } else {
+            user.value = newData
+        }
+    }
+
     const logout = async () => {
         try {
             // 1. Panggil API logout agar backend juga menghapus session/cookie (HttpOnly)
@@ -44,6 +53,7 @@ export const useAuth = () => {
     return {
         user,
         setUser,
+        updateUser,
         fetchUser,
         logout
     }

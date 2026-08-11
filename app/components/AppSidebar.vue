@@ -122,6 +122,7 @@
 </template>
 
 <script setup lang="ts">
+
 import { computed } from 'vue'
 import { useRoute, useRequestHeaders, useFetch } from '#imports'
 
@@ -167,7 +168,7 @@ const menuGroups = computed(() => {
         },
         {
           label: 'Kasir (POS)',
-          to: '/kasir/pos',
+          to: role.value === 'PEMILIK' ? '/owner/pos' : '/kasir/pos',
           icon: resolveComponent('LucideMonitorSmartphone'),
         },
       ],
