@@ -1,30 +1,16 @@
 // server/api/auth/me.ts
-import jwt from "jsonwebtoken";
+import { defineEventHandler, createError } from "h3";
 import { db } from "../../utils/db";
-
-interface JwtPayload {
-  id: string;
-  email: string;
-  role: string;
-}
+import { requireUser } from "../../utils/auth";
 
 export default defineEventHandler(async (event) => {
-  const token = getCookie(event, "auth_token");
-
-  if (!token) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: "Belum login",
-    });
-  }
-
   try {
-    const jwtSecret = process.env.JWT_SECRET || "fallback-secret-key-kedaikopi";
-    const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
+    // 1. Verifikasi user melalui token JWT & pastikan aktif
+    const authUser = await requireUser(event);
 
-    // Ambil data user terbaru dari database, bukan cuma dari isi token
+    // 2. Ambil profil lengkap dari database
     const user = await db.user.findUnique({
-      where: { id: decoded.id },
+      where: { id: authUser.id },
       select: {
         id: true,
         name: true,
@@ -36,29 +22,34 @@ export default defineEventHandler(async (event) => {
       },
     });
 
+    // 3. Tangani edge case jika user terhapus atau nonaktif
     if (!user || !user.isActive) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: "Akun tidak ditemukan atau telah dinonaktifkan",
+      throw createError({ 
+        statusCode: 401, 
+        message: "Akun tidak ditemukan atau telah dinonaktifkan." 
       });
     }
 
-    // Kembalikan langsung sebagai object user (tanpa dibungkus { success, user })
+    // 4. Kembalikan dengan struktur standar yang konsisten (dibungkus dalam .data)
     return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      isActive: user.isActive,
-      createdAt: user.createdAt,
-      emailVerifiedAt: user.emailVerifiedAt,
+      success: true,
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        emailVerifiedAt: user.emailVerifiedAt,
+      },
     };
   } catch (error: any) {
-    if (error.statusCode) throw error;
+    console.error("API Error [GET /api/auth/me]:", error);
 
+    const isKnownError = typeof error.statusCode === "number";
     throw createError({
-      statusCode: 401,
-      statusMessage: "Sesi telah berakhir atau token tidak valid",
+      statusCode: error.statusCode || 500,
+      message: isKnownError ? error.message : "Gagal memuat data sesi pengguna.",
     });
   }
 });

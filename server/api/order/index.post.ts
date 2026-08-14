@@ -1,172 +1,151 @@
+// server/api/order/index.post.ts
+import { defineEventHandler, getMethod, readBody, createError } from "h3";
 import { db } from "../../utils/db";
-import jwt from "jsonwebtoken";
+import { requireUser } from "../../utils/auth";
+import { PaymentMethod } from "../../../generated/prisma/enums";
+import { Prisma } from "../../../generated/prisma/client";
 
-interface JwtPayload {
-  userId?: string | number;
-  id?: string | number;
-  role: "PEMILIK" | "KASIR";
-  iat?: number;
-  exp?: number;
+const MAX_ITEMS = 100;
+const MAX_QTY_PER_ITEM = 9999;
+const MAX_NOTE_LEN = 500;
+const MAX_CUSTOMER_NAME_LEN = 100;
+
+function parsePaymentMethod(value: unknown): PaymentMethod {
+  const upper = String(value || "CASH").trim().toUpperCase();
+  const valid = new Set(Object.values(PaymentMethod));
+  if (!valid.has(upper as PaymentMethod)) {
+    throw createError({ statusCode: 400, statusMessage: `Metode pembayaran tidak valid: ${upper}` });
+  }
+  return upper as PaymentMethod;
+}
+
+// Pembulatan ke 2 desimal, konsisten dengan kolom Decimal(10,2) di schema.
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 export default defineEventHandler(async (event) => {
-  if (event.method !== "POST") {
-    throw createError({
-      statusCode: 405,
-      statusMessage: "Method not allowed",
-    });
+  if (getMethod(event) !== "POST") {
+    throw createError({ statusCode: 405, statusMessage: "Method not allowed" });
   }
 
-  // 1. Verifikasi Otentikasi Kasir / User
-  let user = event.context.user;
+  // requireUser: verifikasi JWT + cek isActive + cross-check ke DB dalam satu jalur.
+  // Kasir maupun Pemilik boleh membuat order.
+  const authUser = await requireUser(event);
+  const cashierId = String(authUser.id);
 
-  if (!user) {
-    let token = getCookie(event, "auth_token");
-
-    if (!token) {
-      const authHeader = getHeader(event, "authorization");
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        token = authHeader.substring(7);
-      }
-    }
-
-    if (token) {
-      try {
-        const jwtSecret = process.env.JWT_SECRET || "fallback-secret-key-kedaikopi";
-        const payload = jwt.verify(token, jwtSecret) as JwtPayload;
-        const rawId = payload.userId ?? payload.id;
-        user = { id: rawId, role: payload.role };
-        event.context.user = user;
-      } catch (e) {
-        // Token kadaluarsa
-      }
-    }
-  }
-
-  const cashierIdRaw = user?.id ?? user?.userId;
-  const cashierId = cashierIdRaw ? String(cashierIdRaw).trim() : null;
-
-  if (!user || !cashierId) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: "Sesi kasir tidak valid atau Anda belum login",
-    });
-  }
-
-  // 2. Ekstrak Request Body
+  // --- Ekstrak & validasi body ---
   const body = await readBody(event).catch(() => ({}));
-  const { items, paymentMethod, totalAmount, discount, note, customerName } = body || {};
+  const { items, paymentMethod, discount, note, customerName } = body || {};
 
   if (!items || !Array.isArray(items) || items.length === 0) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: "Keranjang belanja tidak boleh kosong",
-    });
+    throw createError({ statusCode: 400, statusMessage: "Keranjang belanja tidak boleh kosong" });
+  }
+  if (items.length > MAX_ITEMS) {
+    throw createError({ statusCode: 400, statusMessage: `Maksimal ${MAX_ITEMS} item per transaksi.` });
+  }
+
+  const validatedPaymentMethod = parsePaymentMethod(paymentMethod);
+
+  const rawDiscount = Number(discount) || 0;
+  if (rawDiscount < 0) {
+    throw createError({ statusCode: 400, statusMessage: "Diskon tidak boleh negatif." });
+  }
+
+  const formattedCustomerName = customerName ? String(customerName).trim().slice(0, MAX_CUSTOMER_NAME_LEN) : null;
+  const formattedNote = note ? String(note).trim().slice(0, MAX_NOTE_LEN) : null;
+
+  // Sanitasi & validasi baris item lebih awal (sebelum masuk transaksi DB).
+  const cleanItems: { productId: number; quantity: number }[] = [];
+  for (const item of items) {
+    const quantity = Number(item?.quantity ?? item?.qty);
+    const productId = Number(item?.productId ?? item?.id);
+
+    if (!Number.isInteger(quantity) || quantity <= 0 || quantity > MAX_QTY_PER_ITEM) {
+      throw createError({ statusCode: 400, statusMessage: "Kuantitas item tidak valid." });
+    }
+    if (!Number.isInteger(productId) || productId <= 0) {
+      throw createError({ statusCode: 400, statusMessage: "ID produk tidak valid." });
+    }
+    cleanItems.push({ productId, quantity });
   }
 
   try {
-    // 3. Transaksi Database Atomic dengan Isolation Level & Strict Stock Lock
     const result = await db.$transaction(async (tx) => {
-      const orderItemsData = [];
+      // Ambil harga & nama produk sekali di awal (bukan per-item berulang).
+      const productIds = [...new Set(cleanItems.map((i) => i.productId))];
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds } },
+        select: { id: true, name: true, price: true, isActive: true },
+      });
+      const productMap = new Map(products.map((p) => [p.id, p]));
 
-      for (const item of items) {
-        const quantity = Number(item.quantity ?? item.qty) || 0;
-        const productId = Number(item.productId ?? item.id);
+      const orderItemsData: { productId: number; quantity: number; price: Prisma.Decimal }[] = [];
+      let subtotal = 0;
 
-        if (quantity <= 0 || !productId || isNaN(productId)) {
-          throw createError({
-            statusCode: 400,
-            statusMessage: "Data item tidak valid",
-          });
+      for (const { productId, quantity } of cleanItems) {
+        const product = productMap.get(productId);
+        if (!product) {
+          throw createError({ statusCode: 404, statusMessage: `Produk dengan ID ${productId} tidak ditemukan` });
+        }
+        if (!product.isActive) {
+          throw createError({ statusCode: 400, statusMessage: `Produk "${product.name}" sudah tidak aktif dijual.` });
         }
 
-        // PERBAIKAN PENTING:
-        // Gunakan updateMany dengan kriteria `stock >= quantity` untuk pemotongan atomic aman.
-        // Jika kriteria tidak terpenuhi, `count` akan bernilai 0.
+        // Pemotongan stok atomic — aman dari race condition antar transaksi bersamaan.
         const updated = await tx.product.updateMany({
-          where: {
-            id: productId,
-            stock: {
-              gte: quantity, // Pastikan stok saat ini LEBIH BESAR atau SAMA DENGAN quantity
-            },
-          },
-          data: {
-            stock: {
-              decrement: quantity,
-            },
-          },
+          where: { id: productId, stock: { gte: quantity } },
+          data: { stock: { decrement: quantity } },
         });
 
-        // Jika tidak ada baris yang ter-update, artinya stok tidak mencukupi atau produk tidak ada
         if (updated.count === 0) {
-          // Ambil detail produk untuk memberikan pesan error yang jelas
-          const product = await tx.product.findUnique({ where: { id: productId } });
-          if (!product) {
-            throw createError({
-              statusCode: 404,
-              statusMessage: `Produk dengan ID ${productId} tidak ditemukan`,
-            });
-          }
+          const current = await tx.product.findUnique({ where: { id: productId }, select: { stock: true } });
           throw createError({
             statusCode: 400,
-            statusMessage: `Stok untuk "${product.name}" tidak mencukupi (Sisa stok: ${product.stock}, diminta: ${quantity})`,
+            statusMessage: `Stok untuk "${product.name}" tidak mencukupi (Sisa stok: ${current?.stock ?? 0}, diminta: ${quantity})`,
           });
         }
 
-        // Ambil data harga produk untuk record transaksi
-        const product = await tx.product.findUnique({
-          where: { id: productId },
-          select: { price: true, name: true },
-        });
-
-        orderItemsData.push({
-          productId: productId,
-          quantity: quantity,
-          price: product?.price || 0,
-        });
+        // Harga diambil dari DB (snapshot saat transaksi), BUKAN dari input client.
+        orderItemsData.push({ productId, quantity, price: product.price });
+        subtotal += Number(product.price) * quantity;
       }
 
-      const formattedCustomerName = customerName ? String(customerName).trim() : null;
+      subtotal = round2(subtotal);
 
-      // 4. Buat Record Order
+      // Diskon tidak boleh melebihi subtotal — cegah totalAmount jadi negatif.
+      const discountAmount = round2(Math.min(rawDiscount, subtotal));
+
+      // totalAmount DIHITUNG SERVER, bukan dipercaya dari client — mencegah manipulasi
+      // pencatatan pendapatan (kasir/klien mengirim total lebih kecil dari harga sebenarnya).
+      const totalAmount = round2(subtotal - discountAmount);
+
       const createdOrder = await tx.order.create({
         data: {
           customerName: formattedCustomerName,
-          paymentMethod: paymentMethod || "CASH",
-          totalAmount: Number(totalAmount) || 0,
-          discount: Number(discount) || 0,
-          note: note ? String(note).trim() : null,
-          cashier: {
-            connect: { id: cashierId },
-          },
-          orderItems: {
-            create: orderItemsData,
-          },
+          paymentMethod: validatedPaymentMethod,
+          totalAmount,
+          discount: discountAmount,
+          note: formattedNote,
+          cashier: { connect: { id: cashierId } },
+          orderItems: { create: orderItemsData },
         },
         include: {
-          cashier: {
-            select: { id: true, name: true, email: true, role: true },
-          },
-          orderItems: {
-            include: { product: true },
-          },
+          cashier: { select: { id: true, name: true, role: true } },
+          orderItems: { include: { product: true } },
         },
       });
 
       return createdOrder;
     });
 
-    // 5. Return Response
     return {
       success: true,
       orderId: result.id,
       message: "Transaksi berhasil diproses",
       data: {
         id: result.id,
-        invoiceNo:
-          typeof result.id === "number"
-            ? String(result.id).padStart(6, "0")
-            : String(result.id).slice(-8).toUpperCase(),
+        invoiceNo: String(result.id).padStart(6, "0"),
         customerName: result.customerName || "Pelanggan Umum",
         cashierName: result.cashier?.name || "Kasir",
         cashier: result.cashier,
@@ -183,14 +162,9 @@ export default defineEventHandler(async (event) => {
       },
     };
   } catch (error: any) {
-    if (error.statusCode) {
-      throw error;
-    }
+    if (error?.statusCode) throw error;
 
     console.error("ORDER CREATION ERROR:", error);
-    throw createError({
-      statusCode: 500,
-      statusMessage: "Gagal memproses transaksi: " + (error?.message || "Internal Server Error"),
-    });
+    throw createError({ statusCode: 500, statusMessage: "Gagal memproses transaksi. Silakan coba lagi." });
   }
 });

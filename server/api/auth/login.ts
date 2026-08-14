@@ -1,6 +1,11 @@
 // server/api/auth/login.ts
 import jwt from 'jsonwebtoken'
-import bcrypt from 'bcrypt' // <-- LAKUKAN IMPORT STATIC DI SINI
+import bcrypt from 'bcrypt'
+import { db } from '../../utils/db'
+import { rateLimitByIpAndIdentifier, resetRateLimitByIpAndIdentifier } from '../../utils/rateLimiter'
+
+const MAX_EMAIL_LEN = 255
+const MAX_PASSWORD_LEN = 200
 
 export default defineEventHandler(async (event) => {
   const method = event.node.req.method
@@ -20,42 +25,53 @@ export default defineEventHandler(async (event) => {
   }
 
   const cleanEmail = String(email).trim().toLowerCase()
-  const cleanPassword = String(password).trim()
+  const cleanPassword = String(password)
+
+  if (cleanEmail.length > MAX_EMAIL_LEN || cleanPassword.length > MAX_PASSWORD_LEN) {
+    throw createError({ statusCode: 400, message: 'Email atau kata sandi tidak valid.' })
+  }
+
+  // Rate limit: maksimal 5 percobaan login per menit, per kombinasi IP + email.
+  // Dicek SEBELUM query ke database, supaya percobaan yang sudah kena limit
+  // tidak ikut membebani DB sama sekali.
+  rateLimitByIpAndIdentifier(event, cleanEmail, 'login', { maxAttempts: 5, windowMs: 60 * 1000 })
+
+  // Pesan error untuk SEMUA kegagalan login (email tidak ada, password salah, akun nonaktif)
+  // sengaja disamakan, supaya tidak membocorkan email mana saja yang terdaftar di sistem
+  // (mencegah user enumeration).
+  const GENERIC_AUTH_ERROR = 'Email atau kata sandi salah.'
 
   try {
     // 1. Cari user berdasarkan email
-    const user = await prisma.user.findUnique({
+    const user = await db.user.findUnique({
       where: { email: cleanEmail },
     })
 
-    // Jika user tidak ditemukan
     if (!user) {
-      throw createError({
-        statusCode: 401,
-        message: `Email "${cleanEmail}" tidak ditemukan di DB. Pastikan email menggunakan karakter '@'.`,
-      })
+      throw createError({ statusCode: 401, message: GENERIC_AUTH_ERROR })
     }
 
-    // 2. Cek kecocokan password menggunakan static bcrypt
-    let isPasswordValid = false
-
-    if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
-      // Bandingkan hash langsung karena bcrypt sudah di-import di atas
-      isPasswordValid = await bcrypt.compare(cleanPassword, user.password)
-    } else {
-      // Jika di masa depan ada password plain text
-      isPasswordValid = user.password === cleanPassword
-    }
+    // 2. Cek kecocokan password — HANYA lewat bcrypt, tidak ada fallback plaintext.
+    //    Kalau password di DB tidak berformat hash bcrypt, anggap kredensial salah
+    //    (jangan pernah diam-diam menerima password mentah).
+    const isBcryptHash = user.password.startsWith('$2a$') || user.password.startsWith('$2b$') || user.password.startsWith('$2y$')
+    const isPasswordValid = isBcryptHash ? await bcrypt.compare(cleanPassword, user.password) : false
 
     if (!isPasswordValid) {
-      throw createError({
-        statusCode: 401,
-        message: `Kata sandi tidak cocok.`,
-      })
+      throw createError({ statusCode: 401, message: GENERIC_AUTH_ERROR })
     }
 
-    // 3. Buat JWT Token
-    const jwtSecret = process.env.JWT_SECRET || 'fallback-secret-key-kedaikopi'
+    // 3. Tolak akun yang sudah dinonaktifkan
+    if (!user.isActive) {
+      throw createError({ statusCode: 401, message: GENERIC_AUTH_ERROR })
+    }
+
+    // 4. Buat JWT Token — tanpa fallback secret, fail closed kalau env belum diset.
+    const jwtSecret = process.env.JWT_SECRET
+    if (!jwtSecret) {
+      throw createError({ statusCode: 500, message: 'Konfigurasi server tidak lengkap.' })
+    }
+
     const token = jwt.sign(
       {
         id: user.id,
@@ -66,7 +82,7 @@ export default defineEventHandler(async (event) => {
       { expiresIn: '1d' }
     )
 
-    // 4. Simpan Cookie Token
+    // 5. Simpan Cookie Token
     setCookie(event, 'auth_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -75,10 +91,12 @@ export default defineEventHandler(async (event) => {
       path: '/',
     })
 
+    // Login berhasil — bersihkan counter rate limit supaya tidak ikut menghitung ke sesi berikutnya.
+    resetRateLimitByIpAndIdentifier(event, cleanEmail, 'login')
+
     return {
       success: true,
       message: 'Login berhasil',
-      role: user.role,
       user: {
         id: user.id,
         name: user.name,
@@ -89,9 +107,10 @@ export default defineEventHandler(async (event) => {
   } catch (error: any) {
     if (error.statusCode) throw error
 
+    console.error('Login error:', error)
     throw createError({
       statusCode: 500,
-      message: error.message || 'Terjadi kesalahan pada server saat login.',
+      message: 'Terjadi kesalahan pada server saat login.',
     })
   }
 })

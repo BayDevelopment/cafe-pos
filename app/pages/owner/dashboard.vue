@@ -6,6 +6,8 @@
             <div class="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-[#c9793f]/10 pointer-events-none blur-2xl">
             </div>
 
+            
+
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
                 <div>
                     <div class="flex items-center gap-2 mb-2">

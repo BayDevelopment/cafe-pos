@@ -1,162 +1,171 @@
 // server/api/products/[id].ts
-import fs from 'node:fs'
-import path from 'node:path'
-import crypto from 'node:crypto'
-import { Prisma } from '@prisma/client'
-import jwt from 'jsonwebtoken'
-import { getCookie } from 'h3'
+import { defineEventHandler, getMethod, getRouterParam, readMultipartFormData, createError } from "h3";
+import fs from "node:fs/promises";
+import path from "node:path";
+import crypto from "node:crypto";
+import { Prisma } from "../../../generated/prisma/client";
+import { db } from "../../utils/db";
+import { requireOwner } from "../../utils/auth";
 
-// Helper 1: Cek Magic Bytes (MIME Type Asli dari Isi Buffer)
+const MAX_IMAGE_SIZE = 1 * 1024 * 1024; // 1 MB
+const MAX_NAME_LEN = 200;
+const MAX_SKU_LEN = 50;
+const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
+
 function getMimeTypeFromBuffer(buffer: Buffer): string | null {
-  if (buffer.length < 4) return null
-  const hex = buffer.toString('hex', 0, 4).toUpperCase()
-
-  if (hex === '89504E47') return 'image/png'
-  if (hex.startsWith('FFD8FF')) return 'image/jpeg'
-
-  return null
+  if (buffer.length < 4) return null;
+  const hex = buffer.toString("hex", 0, 4).toUpperCase();
+  if (hex === "89504E47") return "image/png";
+  if (hex.startsWith("FFD8FF")) return "image/jpeg";
+  return null;
 }
 
-// Helper 2: Mencegah Path Traversal Saat Hapus File Fisik
-function safeDeleteFile(relativePath: string) {
-  if (!relativePath || typeof relativePath !== 'string') return
+// Mencegah path traversal saat menghapus file fisik.
+async function safeDeleteFile(relativePath: string) {
+  if (!relativePath || typeof relativePath !== "string") return;
 
-  const uploadDir = path.join(process.cwd(), 'public', 'uploads')
-  const filename = path.basename(relativePath)
-  const fullPath = path.join(uploadDir, filename)
+  const filename = path.basename(relativePath);
+  const fullPath = path.join(UPLOAD_DIR, filename);
 
-  if (fullPath.startsWith(uploadDir) && fs.existsSync(fullPath)) {
-    try {
-      fs.unlinkSync(fullPath)
-    } catch (err) {
-      console.error('Gagal menghapus file fisik:', err)
-    }
-  }
+  if (!fullPath.startsWith(UPLOAD_DIR)) return;
+
+  await fs.unlink(fullPath).catch((err) => {
+    console.error("Gagal menghapus file fisik:", err);
+  });
 }
 
 export default defineEventHandler(async (event) => {
-  const method = event.node.req.method
-  const idRaw = event.context.params?.id
+  const method = getMethod(event);
+  const idRaw = getRouterParam(event, "id");
 
-  // 1. Validasi ID Akses
-  const productId = Number(idRaw)
-  if (!idRaw || isNaN(productId) || productId <= 0) {
-    throw createError({ statusCode: 400, message: 'ID produk tidak valid' })
+  const productId = Number(idRaw);
+  if (!idRaw || !Number.isInteger(productId) || productId <= 0) {
+    throw createError({ statusCode: 400, message: "ID produk tidak valid" });
   }
 
-  // 2. Proteksi Role: Hanya PEMILIK yang diizinkan melakukan EDIT (PUT) atau HAPUS (DELETE)
-  if (method === 'PUT' || method === 'DELETE') {
-    // Ambil token JWT dari cookie 'auth_token'
-    const token = getCookie(event, 'auth_token')
-    
-    if (!token) {
-      throw createError({
-        statusCode: 401,
-        message: 'Akses ditolak. Anda belum login atau sesi telah habis.',
-      })
-    }
-
-    try {
-      // Verifikasi token (sesuaikan secret key dengan backend login Anda)
-      const jwtSecret = process.env.JWT_SECRET || 'fallback-secret-key-kedaikopi'
-      const decoded = jwt.verify(token, jwtSecret) as any
-
-      // Cek apakah rolenya benar-benar PEMILIK
-      if (String(decoded.role || '').toUpperCase() !== 'PEMILIK') {
-        throw createError({
-          statusCode: 403,
-          message: 'Akses ditolak. Hanya PEMILIK yang diizinkan mengubah atau menghapus produk.',
-        })
-      }
-    } catch (error) {
-      throw createError({
-        statusCode: 401,
-        message: 'Sesi login tidak valid. Silakan login kembali.',
-      })
-    }
+  // Hanya PEMILIK yang boleh mengubah atau menghapus produk.
+  if (method === "PUT" || method === "DELETE") {
+    await requireOwner(event);
   }
 
   // ==========================================
-  // 3. UPDATE PRODUK (PUT) - HANYA PEMILIK
+  // UPDATE PRODUK (PUT) — HANYA PEMILIK
   // ==========================================
-  if (method === 'PUT') {
-    const files = await readMultipartFormData(event)
+  if (method === "PUT") {
+    const files = await readMultipartFormData(event);
     if (!files) {
-      throw createError({ statusCode: 400, message: 'Invalid form data' })
+      throw createError({ statusCode: 400, message: "Invalid form data" });
     }
 
-    const existingProduct = await prisma.product.findUnique({
-      where: { id: productId },
-    })
-
+    const existingProduct = await db.product.findUnique({ where: { id: productId } });
     if (!existingProduct) {
-      throw createError({ statusCode: 404, message: 'Produk tidak ditemukan' })
+      throw createError({ statusCode: 404, message: "Produk tidak ditemukan" });
     }
 
-    let name = existingProduct.name
-    let sku = existingProduct.sku
-    let price = existingProduct.price
-    let costPrice = existingProduct.costPrice
-    let stock = existingProduct.stock
-    let categoryId = existingProduct.categoryId
-    let isActive = existingProduct.isActive
-    let newImagePath: string | undefined = undefined
-
-    let uploadedFile: { filename: string; data: Buffer } | null = null
+    let name = existingProduct.name;
+    let sku = existingProduct.sku;
+    let price = existingProduct.price as unknown as number;
+    let costPrice = existingProduct.costPrice as unknown as number | null;
+    let stock = existingProduct.stock;
+    let categoryId = existingProduct.categoryId;
+    let isActive = existingProduct.isActive;
+    let uploadedFile: { filename: string; data: Buffer } | null = null;
 
     for (const file of files) {
-      const fieldName = file.name
-      const value = file.data.toString('utf-8')
+      const fieldName = file.name;
+      const value = file.data.toString("utf-8").trim();
 
-      if (fieldName === 'name' && value.trim()) name = value.trim()
-      if (fieldName === 'sku') sku = value.trim() ? value.trim() : null
-      if (fieldName === 'price' && !isNaN(Number(value))) price = Number(value)
-      if (fieldName === 'costPrice') costPrice = Number(value) || null
-      if (fieldName === 'stock' && !isNaN(Number(value))) stock = Number(value)
-      if (fieldName === 'categoryId' && !isNaN(Number(value))) categoryId = Number(value)
-      if (fieldName === 'isActive') isActive = value === 'true'
-
-      if (fieldName === 'image' && file.filename && file.data.length > 0) {
-        uploadedFile = {
-          filename: file.filename,
-          data: file.data,
+      if (fieldName === "name" && value) {
+        if (value.length > MAX_NAME_LEN) {
+          throw createError({ statusCode: 400, message: `Nama produk tidak boleh melebihi ${MAX_NAME_LEN} karakter.` });
         }
+        name = value;
+      }
+
+      if (fieldName === "sku") {
+        if (value.length > MAX_SKU_LEN) {
+          throw createError({ statusCode: 400, message: `SKU tidak boleh melebihi ${MAX_SKU_LEN} karakter.` });
+        }
+        sku = value || null;
+      }
+
+      if (fieldName === "price" && value !== "") {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+          throw createError({ statusCode: 400, message: "Harga jual wajib berupa angka lebih dari 0." });
+        }
+        price = parsed;
+      }
+
+      if (fieldName === "costPrice" && value !== "") {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed) || parsed < 0) {
+          throw createError({ statusCode: 400, message: "Harga modal harus berupa angka dan tidak boleh negatif." });
+        }
+        costPrice = parsed;
+      }
+
+      if (fieldName === "stock" && value !== "") {
+        const parsed = Number(value);
+        if (!Number.isInteger(parsed) || parsed < 0) {
+          throw createError({ statusCode: 400, message: "Stok harus berupa bilangan bulat dan tidak boleh negatif." });
+        }
+        stock = parsed;
+      }
+
+      if (fieldName === "categoryId" && value !== "") {
+        const parsed = Number(value);
+        if (!Number.isInteger(parsed) || parsed <= 0) {
+          throw createError({ statusCode: 400, message: "Kategori tidak valid." });
+        }
+        categoryId = parsed;
+      }
+
+      if (fieldName === "isActive") isActive = value === "true";
+
+      if (fieldName === "image" && file.filename && file.data.length > 0) {
+        uploadedFile = { filename: file.filename, data: file.data };
       }
     }
 
+    // Kalau kategori diganti, pastikan kategori barunya benar-benar ada.
+    if (categoryId !== existingProduct.categoryId) {
+      const categoryExists = await db.category.findUnique({ where: { id: categoryId }, select: { id: true } });
+      if (!categoryExists) {
+        throw createError({ statusCode: 400, message: "Kategori tidak ditemukan." });
+      }
+    }
+
+    let newImagePath: string | undefined = undefined;
+    let savedFilePath: string | null = null;
+
     if (uploadedFile) {
-      const maxSizeInBytes = 1 * 1024 * 1024
-      if (uploadedFile.data.length > maxSizeInBytes) {
-        throw createError({ statusCode: 400, message: 'Ukuran gambar maksimal 1 MB' })
+      if (uploadedFile.data.length > MAX_IMAGE_SIZE) {
+        throw createError({ statusCode: 400, message: "Ukuran gambar maksimal 1 MB" });
       }
 
-      const detectedMime = getMimeTypeFromBuffer(uploadedFile.data)
-      if (!detectedMime || !['image/png', 'image/jpeg'].includes(detectedMime)) {
+      const detectedMime = getMimeTypeFromBuffer(uploadedFile.data);
+      if (!detectedMime || !["image/png", "image/jpeg"].includes(detectedMime)) {
         throw createError({
           statusCode: 400,
-          message: 'Format gambar ditolak. Hanya PNG dan JPG/JPEG asli yang diizinkan.',
-        })
+          message: "Format gambar ditolak. Hanya PNG dan JPG/JPEG asli yang diizinkan.",
+        });
       }
 
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads')
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true })
-      }
+      await fs.mkdir(UPLOAD_DIR, { recursive: true });
 
-      const safeExtension = detectedMime === 'image/png' ? '.png' : '.jpg'
-      const randomFileName = `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${safeExtension}`
-      const fullPath = path.join(uploadDir, randomFileName)
+      const safeExtension = detectedMime === "image/png" ? ".png" : ".jpg";
+      const randomFileName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}${safeExtension}`;
+      const fullPath = path.join(UPLOAD_DIR, randomFileName);
 
-      fs.writeFileSync(fullPath, uploadedFile.data)
-      newImagePath = `/uploads/${randomFileName}`
-
-      if (existingProduct.image) {
-        safeDeleteFile(existingProduct.image)
-      }
+      await fs.writeFile(fullPath, uploadedFile.data);
+      savedFilePath = fullPath;
+      newImagePath = `/uploads/${randomFileName}`;
+      // PENTING: gambar LAMA belum dihapus di sini — baru dihapus setelah update DB sukses di bawah.
     }
 
     try {
-      const updatedProduct = await prisma.product.update({
+      const updatedProduct = await db.product.update({
         where: { id: productId },
         data: {
           name,
@@ -168,49 +177,71 @@ export default defineEventHandler(async (event) => {
           isActive,
           ...(newImagePath !== undefined && { image: newImagePath }),
         },
-      })
+      });
+
+      // Update DB sukses — baru sekarang aman menghapus gambar lama (kalau memang diganti).
+      if (newImagePath && existingProduct.image) {
+        await safeDeleteFile(existingProduct.image);
+      }
 
       return {
         success: true,
-        message: 'Produk berhasil diperbarui',
+        message: "Produk berhasil diperbarui",
         data: updatedProduct,
-      }
+      };
     } catch (error: any) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        throw createError({ statusCode: 400, message: 'SKU produk sudah digunakan.' })
+      // Update gagal — bersihkan gambar baru yang sudah terlanjur ditulis, jangan biarkan nyangkut.
+      if (savedFilePath) await fs.unlink(savedFilePath).catch(() => {});
+
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === "P2002") {
+          throw createError({ statusCode: 409, message: "SKU produk sudah digunakan." });
+        }
+        if (error.code === "P2003") {
+          throw createError({ statusCode: 400, message: "Kategori tidak valid." });
+        }
       }
-      throw error
+
+      console.error("Gagal memperbarui produk:", error);
+      throw createError({ statusCode: 500, message: "Gagal memperbarui produk." });
     }
   }
 
   // ==========================================
-  // 4. HAPUS PRODUK (DELETE) - HANYA PEMILIK
+  // HAPUS PRODUK (DELETE) — HANYA PEMILIK
   // ==========================================
-  if (method === 'DELETE') {
+  if (method === "DELETE") {
     try {
-      const deletedProduct = await prisma.product.delete({
-        where: { id: productId },
-      })
+      const deletedProduct = await db.product.delete({ where: { id: productId } });
 
       if (deletedProduct.image) {
-        safeDeleteFile(deletedProduct.image)
+        await safeDeleteFile(deletedProduct.image);
       }
 
       return {
         success: true,
-        message: 'Produk dan gambar berhasil dihapus',
+        message: "Produk dan gambar berhasil dihapus",
         data: deletedProduct,
-      }
+      };
     } catch (error: any) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
-        throw createError({
-          statusCode: 404,
-          message: 'Produk sudah dihapus atau tidak ditemukan.',
-        })
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === "P2025") {
+          throw createError({ statusCode: 404, message: "Produk sudah dihapus atau tidak ditemukan." });
+        }
+        // Product.orderItems pakai onDelete: Restrict — produk yang sudah pernah
+        // terjual tidak bisa dihapus langsung dari database.
+        if (error.code === "P2003") {
+          throw createError({
+            statusCode: 400,
+            message: "Produk tidak dapat dihapus karena sudah pernah digunakan dalam transaksi. Nonaktifkan saja produk ini alih-alih menghapusnya.",
+          });
+        }
       }
-      throw error
+
+      console.error("Gagal menghapus produk:", error);
+      throw createError({ statusCode: 500, message: "Gagal menghapus produk." });
     }
   }
 
-  throw createError({ statusCode: 405, message: 'Method not allowed' })
-})
+  throw createError({ statusCode: 405, message: "Method not allowed" });
+});

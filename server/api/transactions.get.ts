@@ -1,88 +1,62 @@
 // server/api/transactions.get.ts
 import { db } from "../utils/db";
-import jwt from "jsonwebtoken";
+import { requireUser } from "../utils/auth";
+import { OrderStatus, Role } from "../../generated/prisma/enums";
 
-interface JwtPayload {
-  userId?: string | number;
-  id?: string | number;
-  role: "PEMILIK" | "KASIR";
-}
+const MAX_LIMIT = 100;
+const DEFAULT_LIMIT = 20;
 
 export default defineEventHandler(async (event) => {
-  // 1. Verifikasi Otentikasi JWT
-  let user = event.context.user;
-
-  if (!user) {
-    let token = getCookie(event, "auth_token");
-    if (!token) {
-      const authHeader = getHeader(event, "authorization");
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        token = authHeader.substring(7);
-      }
-    }
-
-    if (token) {
-      try {
-        const jwtSecret = process.env.JWT_SECRET || "fallback-secret-key-kedaikopi";
-        const payload = jwt.verify(token, jwtSecret) as JwtPayload;
-        const rawId = payload.userId ?? payload.id;
-        user = { id: rawId, role: payload.role };
-        event.context.user = user;
-      } catch (e) {
-        // Token tidak valid atau kadaluarsa
-      }
-    }
-  }
-
-  if (!user) {
-    throw createError({
-      statusCode: 401,
-      statusMessage: "Anda harus login untuk mengakses riwayat transaksi",
-    });
-  }
-
-  // Normalisasi role user
-  const userRole = String(user.role || "").toUpperCase();
-  const isOwner = userRole === "PEMILIK";
+  // 1. Verifikasi Otentikasi & Otorisasi — lewat helper terpusat (tanpa fallback secret,
+  //    fail closed kalau JWT_SECRET tidak diset, dicek ulang terhadap DB & status aktif user).
+  const user = await requireUser(event);
+  const isOwner = user.role === Role.PEMILIK;
 
   // 2. Query Parameters dari Client
   const query = getQuery(event);
   const page = Math.max(1, Number(query.page) || 1);
-  const limit = Math.max(1, Number(query.limit) || 20);
+  // Batasi limit maksimal supaya query tidak bisa dipaksa menarik jutaan baris sekaligus.
+  const limit = Math.min(MAX_LIMIT, Math.max(1, Number(query.limit) || DEFAULT_LIMIT));
   const skip = (page - 1) * limit;
 
-  const search = query.search ? String(query.search).trim() : "";
-  const status = query.status ? String(query.status) : undefined;
-  const paymentMethod = query.paymentMethod ? String(query.paymentMethod) : undefined;
+  const search = query.search ? String(query.search).trim().slice(0, 100) : "";
+  const statusQuery = query.status ? String(query.status).toUpperCase() : undefined;
+  const paymentMethod = query.paymentMethod ? String(query.paymentMethod).slice(0, 30) : undefined;
 
   // 3. Menyusun Filter Prisma (whereCondition)
   const whereCondition: any = {};
 
-  if (status) {
-    whereCondition.status = status;
+  if (statusQuery) {
+    if (statusQuery === "SUCCESS") {
+      whereCondition.status = OrderStatus.PAID;
+    } else if (statusQuery === "CANCELLED") {
+      whereCondition.status = OrderStatus.CANCELLED;
+    } else if (Object.values(OrderStatus).includes(statusQuery as OrderStatus)) {
+      whereCondition.status = statusQuery as OrderStatus;
+    }
   }
 
   if (paymentMethod) {
     whereCondition.paymentMethod = paymentMethod;
   }
 
-  // --- PEMBATASAN ROLE KASIR (Hanya Hari Ini) ---
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
-
+  // --- HAK AKSES DAN KONTROL TANGGAL BERDASARKAN ROLE ---
   if (!isOwner) {
-    // Jika user adalah KASIR, paksa filter createdAt hanya hari ini
-    whereCondition.createdAt = {
-      gte: todayStart,
-      lte: todayEnd,
-    };
+    // KASIR: dibatasi hanya transaksi milik dirinya sendiri, HARI INI saja.
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    whereCondition.createdAt = { gte: todayStart, lte: todayEnd };
+    // Kasir hanya boleh melihat transaksinya sendiri, bukan milik kasir lain.
+    whereCondition.cashierId = user.id;
   } else {
-    // Jika PEMILIK, cek apakah ada filter tanggal opsional dari query
-    const startDate = query.startDate ? new Date(String(query.startDate)) : null;
-    const endDate = query.endDate ? new Date(String(query.endDate)) : null;
+    // PEMILIK: bebas melihat riwayat kapan saja; filter tanggal hanya kalau dikirim query.
+    const rawStart = query.startDate ? new Date(String(query.startDate)) : null;
+    const rawEnd = query.endDate ? new Date(String(query.endDate)) : null;
+
+    const startDate = rawStart && !isNaN(rawStart.getTime()) ? rawStart : null;
+    const endDate = rawEnd && !isNaN(rawEnd.getTime()) ? rawEnd : null;
 
     if (startDate || endDate) {
       whereCondition.createdAt = {};
@@ -97,69 +71,64 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // PERBAIKAN SEARCH PRISMA (Memisahkan numeric ID & string fields + Nama Kasir)
+  // 4. FILTER PENCARIAN (Search)
   if (search) {
-    const isNumberSearch = !isNaN(Number(search));
+    const isNumberSearch = /^\d+$/.test(search);
 
     whereCondition.OR = [
-      // Jika input berupa angka, cari berdasarkan ID tepat
       ...(isNumberSearch ? [{ id: Number(search) }] : []),
-      // Cari berdasarkan nama pelanggan
       { customerName: { contains: search, mode: "insensitive" } },
-      // Cari berdasarkan nama kasir (Relasi User/Cashier)
       { cashier: { name: { contains: search, mode: "insensitive" } } },
     ];
   }
 
   try {
-    // 4. Query Data & Count dari Database
+    // 5. Query Data & Count dari Database
     const [total, orders] = await Promise.all([
       db.order.count({ where: whereCondition }),
       db.order.findMany({
         where: whereCondition,
         orderBy: { createdAt: "desc" },
-        skip: skip,
+        skip,
         take: limit,
         include: {
           cashier: {
             select: {
               id: true,
               name: true,
-              email: true,
+              // Email hanya relevan untuk Pemilik; kasir tidak perlu (dan tidak seharusnya)
+              // melihat email kasir lain. Prisma select di-set kondisional di bawah.
+              ...(isOwner ? { email: true } : {}),
             },
           },
           orderItems: {
-            include: {
-              product: true,
-            },
+            include: { product: true },
           },
         },
       }),
     ]);
 
-    // 5. Transformasi Data agar Sesuai Komponen Frontend
+    // 6. Transformasi Data untuk Frontend
     const formattedData = orders.map((order: any) => {
-      // Normalisasi status database ke format frontend ("SUCCESS" atau "CANCELLED")
-      const rawStatus = String(order.status || "").toUpperCase();
-      const isSuccess = !rawStatus || ["PAID", "SUCCESS", "COMPLETED"].includes(rawStatus);
+      const isSuccess = order.status === OrderStatus.PAID;
       const normalizedStatus = isSuccess ? "SUCCESS" : "CANCELLED";
 
-      // Format Nomor Faktur/Invoice
       const invoiceNo =
-        typeof order.id === "number"
+        order.invoiceNo ||
+        (typeof order.id === "number"
           ? String(order.id).padStart(6, "0")
-          : String(order.id).slice(-8).toUpperCase();
+          : String(order.id).slice(-8).toUpperCase());
 
       return {
         id: order.id,
-        invoiceNo: invoiceNo,
+        invoiceNo,
         createdAt: order.createdAt,
         customerName: order.customerName || "Pelanggan Umum",
         cashier: order.cashier || null,
         cashierName: order.cashier?.name || "Kasir",
         paymentMethod: order.paymentMethod || "CASH",
         status: normalizedStatus,
-        subtotal: Number(order.totalAmount || 0),
+        subtotal: Number(order.subtotal || order.totalAmount || 0),
         discount: Number(order.discount || 0),
         tax: Number(order.tax || 0),
         totalAmount: Number(order.totalAmount || 0),
@@ -168,23 +137,19 @@ export default defineEventHandler(async (event) => {
           ? order.orderItems.map((item: any) => ({
               id: item.id,
               productName: item.product?.name || "Produk",
-              qty: item.quantity,
-              price: Number(item.price),
+              qty: item.quantity ?? item.qty ?? 1,
+              price: Number(item.price || 0),
               note: item.note || "",
             }))
           : [],
       };
     });
 
-    // 6. Ringkasan Halaman Ini
+    // 7. Kalkulasi Ringkasan Data
     const successOrders = formattedData.filter((o) => o.status === "SUCCESS");
-    const totalAmount = successOrders.reduce(
-      (sum, item) => sum + item.totalAmount,
-      0
-    );
+    const totalAmount = successOrders.reduce((sum, item) => sum + item.totalAmount, 0);
     const successCount = successOrders.length;
-    const average =
-      successCount > 0 ? Math.round(totalAmount / successCount) : 0;
+    const average = successCount > 0 ? Math.round(totalAmount / successCount) : 0;
 
     return {
       success: true,
@@ -195,16 +160,14 @@ export default defineEventHandler(async (event) => {
         limit,
         totalPages: Math.ceil(total / limit) || 1,
       },
-      summary: {
-        totalAmount,
-        successCount,
-        average,
-      },
+      summary: { totalAmount, successCount, average },
     };
   } catch (error: any) {
+    // Jangan bocorkan detail error internal (nama tabel/kolom Prisma dsb.) ke client.
+    console.error("Gagal memuat transaksi:", error);
     throw createError({
       statusCode: 500,
-      statusMessage: "Gagal memuat transaksi: " + error.message,
+      statusMessage: "Gagal memuat transaksi. Silakan coba lagi.",
     });
   }
 });
