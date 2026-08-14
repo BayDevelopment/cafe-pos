@@ -88,12 +88,11 @@
         <div class="flex items-center gap-3 px-3 py-3 rounded-2xl bg-[#f8f5ee]/5 border border-[#f8f5ee]/10">
           <!-- Skeleton (saat data user masih dimuat) -->
           <template v-if="userPending">
-            <div class="w-10 h-10 rounded-full bg-[#f8f5ee]/10 animate-pulse flex-shrink-0"></div>
-            <div class="flex-1 min-w-0 space-y-2">
-              <div class="h-3 w-24 rounded-full bg-[#f8f5ee]/10 animate-pulse"></div>
-              <div class="h-2.5 w-14 rounded-full bg-[#f8f5ee]/10 animate-pulse"></div>
+            <div class="skeleton w-10 h-10 rounded-full flex-shrink-0"></div>
+            <div class="flex-1 min-w-0 space-y-1.5">
+              <div class="skeleton h-4 w-32 rounded"></div>
+              <div class="skeleton h-3 w-20 rounded"></div>
             </div>
-            <div class="w-6 h-6 rounded-lg bg-[#f8f5ee]/10 animate-pulse flex-shrink-0"></div>
           </template>
 
           <!-- Konten Asli (setelah data siap) -->
@@ -122,7 +121,6 @@
 </template>
 
 <script setup lang="ts">
-
 import { computed } from 'vue'
 import { useRoute, useRequestHeaders, useFetch } from '#imports'
 
@@ -247,5 +245,21 @@ function isActive(to: string) {
 
 .scrollbar-thin {
   scrollbar-width: thin;
+}
+
+/* SKELETON LOADING */
+.skeleton {
+    background: linear-gradient(90deg, #32251f 25%, #46342c 50%, #32251f 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
 }
 </style>
