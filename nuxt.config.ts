@@ -1,5 +1,8 @@
 export default defineNuxtConfig({
-  css: ['~~/assets/css/main.css'],
+  css: [
+    '~~/assets/css/main.css',
+    '~~/assets/css/ticket-theme.css',
+  ],
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
   modules: [

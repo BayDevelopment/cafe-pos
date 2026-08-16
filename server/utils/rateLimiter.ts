@@ -3,12 +3,11 @@ import { createError, getRequestIP, setResponseHeader } from "h3";
 
 interface Bucket {
   count: number;
-  resetAt: number; // epoch ms
+  resetAt: number;
 }
 
 const buckets = new Map<string, Bucket>();
 
-// Bersihkan entri kedaluwarsa secara berkala supaya Map tidak membengkak selamanya.
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 const cleanupTimer = setInterval(() => {
   const now = Date.now();
@@ -16,18 +15,23 @@ const cleanupTimer = setInterval(() => {
     if (bucket.resetAt < now) buckets.delete(key);
   }
 }, CLEANUP_INTERVAL_MS);
-// Jangan sampai timer ini mencegah proses Node.js exit dengan bersih.
 cleanupTimer.unref?.();
 
 interface RateLimitOptions {
-  maxAttempts?: number; // default 5
-  windowMs?: number; // default 60_000 (1 menit)
+  maxAttempts?: number;
+  windowMs?: number;
 }
 
-/**
- * Cek & increment rate limit untuk sebuah key. Melempar 429 kalau sudah melebihi batas.
- * Panggil ini di AWAL handler, sebelum proses autentikasi/logic lain berjalan.
- */
+// PENTING: set true HANYA kalau app ini berjalan di belakang reverse proxy
+// tepercaya (Nginx/Cloudflare/dll) yang men-overwrite X-Forwarded-For.
+// Kalau server diakses langsung dari internet, WAJIB false — kalau tidak,
+// rate limit bisa di-bypass dengan memalsukan header ini.
+const TRUST_PROXY = process.env.TRUST_PROXY === "true";
+
+function resolveIp(event: H3Event): string {
+  return getRequestIP(event, { xForwardedFor: TRUST_PROXY }) || "unknown";
+}
+
 export function checkRateLimit(key: string, options: RateLimitOptions = {}): void {
   const maxAttempts = options.maxAttempts ?? 5;
   const windowMs = options.windowMs ?? 60 * 1000;
@@ -52,24 +56,17 @@ export function checkRateLimit(key: string, options: RateLimitOptions = {}): voi
   }
 }
 
-/** Panggil setelah percobaan BERHASIL (login sukses, reset password sukses), supaya counter langsung bersih. */
 export function resetRateLimit(key: string): void {
   buckets.delete(key);
 }
 
-/**
- * Helper untuk endpoint yang butuh rate limit berbasis kombinasi IP + identifier
- * (mis. IP + email), supaya satu penyerang tidak bisa mengunci akun orang lain
- * hanya dengan mengetahui emailnya dari IP yang berbeda-beda, sekaligus mencegah
- * satu IP mem-brute-force banyak akun berbeda secara paralel.
- */
 export function rateLimitByIpAndIdentifier(
   event: H3Event,
   identifier: string,
   routeLabel: string,
   options?: RateLimitOptions
 ): void {
-  const ip = getRequestIP(event, { xForwardedFor: true }) || "unknown";
+  const ip = resolveIp(event);
   const key = `${routeLabel}:${ip}:${identifier.toLowerCase()}`;
 
   try {
@@ -82,18 +79,13 @@ export function rateLimitByIpAndIdentifier(
   }
 }
 
-/** Reset counter untuk kombinasi IP + identifier yang sama (dipanggil setelah sukses). */
 export function resetRateLimitByIpAndIdentifier(event: H3Event, identifier: string, routeLabel: string): void {
-  const ip = getRequestIP(event, { xForwardedFor: true }) || "unknown";
+  const ip = resolveIp(event);
   resetRateLimit(`${routeLabel}:${ip}:${identifier.toLowerCase()}`);
 }
 
-/**
- * Rate limit murni berbasis IP (tanpa identifier tambahan) — untuk endpoint yang
- * belum tahu siapa usernya di awal request, mis. reset-password yang cuma punya token acak.
- */
 export function rateLimitByIp(event: H3Event, routeLabel: string, options?: RateLimitOptions): void {
-  const ip = getRequestIP(event, { xForwardedFor: true }) || "unknown";
+  const ip = resolveIp(event);
   const key = `${routeLabel}:${ip}`;
 
   try {

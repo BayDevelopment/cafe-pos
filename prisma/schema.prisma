@@ -48,7 +48,7 @@ model User {
   isActive        Boolean   @default(true)
 
   emailVerifiedAt DateTime?
-
+  passwordChangedAt DateTime?
   employee        Employee?
   orders          Order[]
 

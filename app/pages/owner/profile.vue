@@ -445,6 +445,8 @@ useHead({
     title: 'Profil Pengguna - Kedai Kopi POS',
 })
 </script>
+
+
 <style scoped>
 .label-xs {
     font-size: 0.66rem;

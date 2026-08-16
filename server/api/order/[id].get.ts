@@ -4,6 +4,17 @@ import { db } from "../../utils/db";
 import { requireUser } from "../../utils/auth";
 import { Role } from "../../../generated/prisma/enums";
 
+// Cek apakah sebuah Date jatuh pada hari kalender yang sama dengan hari ini,
+// dihitung berdasarkan WIB (UTC+7), supaya konsisten dengan scope "hari ini"
+// yang dipakai di halaman riwayat kasir.
+function isSameWibDay(date: Date, reference: Date = new Date()): boolean {
+  const toWibDateString = (d: Date) => {
+    const wib = new Date(d.getTime() + 7 * 60 * 60 * 1000);
+    return wib.toISOString().split("T")[0];
+  };
+  return toWibDateString(date) === toWibDateString(reference);
+}
+
 export default defineEventHandler(async (event) => {
   const authUser = await requireUser(event);
   const isOwner = authUser.role === Role.PEMILIK;
@@ -29,17 +40,25 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 404, statusMessage: "Pesanan tidak ditemukan" });
     }
 
-    // Kasir hanya boleh melihat order miliknya sendiri — mencegah enumerasi ID
-    // (1, 2, 3, ...) untuk mengintip transaksi kasir lain. Pemilik bebas melihat semua.
-    if (!isOwner && order.cashierId !== String(authUser.id)) {
+    // Owner: bebas akses semua order, kapan pun.
+    // Kasir: boleh akses order APAPUN (bukan cuma miliknya sendiri) selama
+    // masih dalam scope "hari ini" (WIB) — konsisten dengan apa yang mereka
+    // lihat di halaman riwayat. Order dari hari sebelumnya tetap ditolak.
+    const isWithinTodayScope = isSameWibDay(order.createdAt);
+
+    if (!isOwner && !isWithinTodayScope) {
       throw createError({ statusCode: 403, statusMessage: "Anda tidak berhak melihat pesanan ini." });
     }
 
-    // Email kasir hanya relevan untuk Pemilik; kasir yang melihat order miliknya sendiri
-    // otomatis melihat emailnya sendiri, jadi tidak perlu disembunyikan dari kasus itu.
+    // Mengatur respons data kasir untuk menjaga privasi email jika diakses sesama kasir
     const responseOrder = isOwner
       ? order
-      : { ...order, cashier: order.cashier ? { id: order.cashier.id, name: order.cashier.name, role: order.cashier.role } : null };
+      : {
+          ...order,
+          cashier: order.cashier
+            ? { id: order.cashier.id, name: order.cashier.name, role: order.cashier.role }
+            : null,
+        };
 
     return { success: true, data: responseOrder };
   } catch (error: any) {

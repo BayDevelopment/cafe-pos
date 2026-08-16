@@ -200,7 +200,7 @@
                         dari seluruh kasir.</p>
                 </NuxtLink>
 
-                <NuxtLink to="/kasir/product"
+                <NuxtLink to="/owner/product"
                     class="quick-link p-5 rounded-2xl border border-[#1c1410]/10 bg-white/40 hover:bg-[#f3ede2] transition-all block group shadow-sm">
                     <div class="flex items-center justify-between mb-2">
                         <span class="mono label-xs text-[#c9793f] font-bold">MODUL INVENTARIS</span>

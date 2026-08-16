@@ -9,14 +9,17 @@ export default defineEventHandler((event) => {
     });
   }
 
-  // Atribut ini sengaja disamakan persis dengan setCookie() di login.ts,
-  // supaya penghapusan cookie konsisten di semua browser/kondisi.
-  deleteCookie(event, "auth_token", {
+  const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "lax" as const,
     path: "/",
-  });
+  };
+
+  // Hapus kedua kemungkinan nama cookie auth, supaya tidak ada sesi
+  // "nyangkut" dari kode lama / jalur lain yang pernah set cookie "token".
+  deleteCookie(event, "auth_token", cookieOptions);
+  deleteCookie(event, "token", cookieOptions);
 
   return {
     success: true,

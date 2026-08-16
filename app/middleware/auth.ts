@@ -15,20 +15,30 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
 
   // 2. JIKA USER TETAP BELUM LOGIN SETELAH FETCH
   if (!user.value) {
-    if (to.path !== '/kasir/login' && to.path !== '/owner/login') {
+    const allowedAuthPaths = ['/kasir/login', '/owner/login', '/auth/forgot-password'];
+    if (!allowedAuthPaths.includes(to.path)) {
       if (to.path.startsWith('/owner')) {
         return navigateTo('/owner/login');
       }
-      return navigateTo('/kasir/login');
+      if (to.path.startsWith('/kasir')) {
+        return navigateTo('/kasir/login');
+      }
     }
-    return; // Izinkan akses halaman login bagi guest
+    return; // Izinkan akses halaman login/forgot-password bagi guest
   }
 
   // 3. JIKA USER SUDAH LOGIN (Data sudah pasti ada, tidak akan null lagi)
   const role = String(user.value?.role || '').toUpperCase().trim();
 
-  // A. Jika user SUDAH LOGIN tapi mencoba membuka halaman LOGIN
-  if (to.path === '/kasir/login' || to.path === '/owner/login') {
+  // Validasi Role yang Diizinkan (Contoh: KASIR dan PEMILIK)
+  const validRoles = ['KASIR', 'PEMILIK'];
+  if (!validRoles.includes(role)) {
+    // Tolak mentah-mentah ke halaman guest jika role tidak valid / tidak dikenal
+    return navigateTo('/');
+  }
+
+  // A. Jika user SUDAH LOGIN tapi mencoba membuka halaman LOGIN atau FORGOT-PASSWORD
+  if (to.path === '/kasir/login' || to.path === '/owner/login' || to.path === '/auth/forgot-password') {
     if (role === 'KASIR') {
       return navigateTo('/kasir/dashboard');
     }

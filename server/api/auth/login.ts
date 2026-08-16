@@ -7,6 +7,8 @@ import { rateLimitByIpAndIdentifier, resetRateLimitByIpAndIdentifier } from '../
 const MAX_EMAIL_LEN = 255
 const MAX_PASSWORD_LEN = 200
 
+const DUMMY_HASH = '$2b$10$CwTycUXWue0Thq9StjUM0uJ8vFj/RJhmXvV+9pXCXZ9r5t5Y2b1Fy'
+
 export default defineEventHandler(async (event) => {
   const method = event.node.req.method
 
@@ -14,7 +16,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 405, message: 'Method not allowed' })
   }
 
-  const body = await readBody(event)
+  let body: any
+  try {
+    body = await readBody(event)
+  } catch {
+    throw createError({ statusCode: 400, message: 'Body request tidak valid.' })
+  }
+
   const { email, password } = body || {}
 
   if (!email || !password) {
@@ -31,14 +39,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Email atau kata sandi tidak valid.' })
   }
 
-  // Rate limit: maksimal 5 percobaan login per menit, per kombinasi IP + email.
-  // Dicek SEBELUM query ke database, supaya percobaan yang sudah kena limit
-  // tidak ikut membebani DB sama sekali.
   rateLimitByIpAndIdentifier(event, cleanEmail, 'login', { maxAttempts: 5, windowMs: 60 * 1000 })
 
-  // Pesan error untuk SEMUA kegagalan login (email tidak ada, password salah, akun nonaktif)
-  // sengaja disamakan, supaya tidak membocorkan email mana saja yang terdaftar di sistem
-  // (mencegah user enumeration).
   const GENERIC_AUTH_ERROR = 'Email atau kata sandi salah.'
 
   try {
@@ -47,17 +49,17 @@ export default defineEventHandler(async (event) => {
       where: { email: cleanEmail },
     })
 
-    if (!user) {
-      throw createError({ statusCode: 401, message: GENERIC_AUTH_ERROR })
-    }
+    
+    const isBcryptHash = user
+      ? user.password.startsWith('$2a$') || user.password.startsWith('$2b$') || user.password.startsWith('$2y$')
+      : false
 
-    // 2. Cek kecocokan password — HANYA lewat bcrypt, tidak ada fallback plaintext.
-    //    Kalau password di DB tidak berformat hash bcrypt, anggap kredensial salah
-    //    (jangan pernah diam-diam menerima password mentah).
-    const isBcryptHash = user.password.startsWith('$2a$') || user.password.startsWith('$2b$') || user.password.startsWith('$2y$')
-    const isPasswordValid = isBcryptHash ? await bcrypt.compare(cleanPassword, user.password) : false
+    const isPasswordValid = await bcrypt.compare(
+      cleanPassword,
+      isBcryptHash ? user!.password : DUMMY_HASH
+    )
 
-    if (!isPasswordValid) {
+    if (!user || !isPasswordValid) {
       throw createError({ statusCode: 401, message: GENERIC_AUTH_ERROR })
     }
 
@@ -79,7 +81,7 @@ export default defineEventHandler(async (event) => {
         role: user.role,
       },
       jwtSecret,
-      { expiresIn: '1d' }
+      { expiresIn: '1d', algorithm: 'HS256' }
     )
 
     // 5. Simpan Cookie Token

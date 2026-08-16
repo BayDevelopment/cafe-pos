@@ -17,11 +17,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 405, statusMessage: "Method not allowed" });
   }
 
-  // Rate limit murni per IP (token acak berentropi tinggi, tapi tetap dibatasi
-  // sebagai lapisan pertahanan tambahan terhadap automasi/spam request).
   rateLimitByIp(event, "reset-password", { maxAttempts: 5, windowMs: 60 * 1000 });
 
-  const body = await readBody(event);
+  let body: any;
+  try {
+    body = await readBody(event);
+  } catch {
+    throw createError({ statusCode: 400, statusMessage: "Body request tidak valid." });
+  }
+
   const rawToken = typeof body?.token === "string" ? body.token.trim() : "";
   const { newPassword, confirmPassword } = body || {};
 
@@ -38,8 +42,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Konfirmasi password tidak cocok." });
   }
 
-  // Pesan generik untuk semua kondisi token invalid — tidak perlu bedakan
-  // "token tidak ada" vs "sudah dipakai" vs "kedaluwarsa" ke client.
   const GENERIC_TOKEN_ERROR = "Link reset password tidak valid atau sudah kedaluwarsa. Silakan minta link baru.";
 
   try {
@@ -64,24 +66,28 @@ export default defineEventHandler(async (event) => {
     await db.$transaction([
       db.user.update({
         where: { id: resetToken.userId },
-        data: { password: hashedNewPassword },
+        // passwordChangedAt di-set supaya token JWT lama (kalau sempat
+        // dicuri sebelum reset dilakukan) langsung tidak berlaku lagi.
+        data: { password: hashedNewPassword, passwordChangedAt: new Date() },
       }),
-      // Tandai token ini sudah dipakai (sekali pakai).
       db.passwordResetToken.update({
         where: { id: resetToken.id },
         data: { usedAt: new Date() },
       }),
-      // Batalkan juga token reset lain yang masih aktif untuk user ini (jaga-jaga
-      // ada beberapa permintaan reset sebelumnya yang belum dipakai).
       db.passwordResetToken.deleteMany({
         where: { userId: resetToken.userId, usedAt: null, id: { not: resetToken.id } },
       }),
     ]);
 
-    return { success: true, message: "Password berhasil direset. Silakan login dengan password baru." };
+    // role dikembalikan supaya frontend tahu redirect ke halaman login yang
+    // benar (/owner/login vs /kasir/login) — bukan data sensitif, cuma label akses.
+    return {
+      success: true,
+      message: "Password berhasil direset. Silakan login dengan password baru.",
+      role: resetToken.user.role,
+    };
   } catch (error: any) {
     if (error?.statusCode) throw error;
-
     console.error("Reset password error:", error);
     throw createError({ statusCode: 500, statusMessage: "Terjadi kesalahan, silakan coba lagi nanti." });
   }
