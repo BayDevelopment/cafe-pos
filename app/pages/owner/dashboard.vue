@@ -27,7 +27,7 @@
                 </div>
 
                 <div class="flex items-center gap-3 w-full md:w-auto">
-                    <NuxtLink to="/owner/reports"
+                    <NuxtLink to="/owner/laporan"
                         class="btn-stamp mono group inline-flex items-center gap-2 no-underline flex-1 md:flex-initial justify-center">
                         <LucideBarChart3
                             class="w-4 h-4 text-[#c9793f] group-hover:text-white transition-colors duration-200" />
@@ -188,7 +188,7 @@
             </h3>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <NuxtLink to="/owner/reports"
+                <NuxtLink to="/owner/laporan"
                     class="quick-link p-5 rounded-2xl border border-[#1c1410]/10 bg-white/40 hover:bg-[#f3ede2] transition-all block group shadow-sm">
                     <div class="flex items-center justify-between mb-2">
                         <span class="mono label-xs text-[#c9793f] font-bold">MODUL EKSEKUTIF</span>
@@ -220,6 +220,10 @@
 <script setup lang="ts">
 definePageMeta({
     middleware: ['auth']
+})
+
+useHead({
+  title: 'Dashboard - POS Owner'
 })
 
 const { logout } = useAuth()

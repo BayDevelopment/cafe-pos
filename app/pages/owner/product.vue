@@ -383,6 +383,10 @@ definePageMeta({
     middleware: ['auth']
 })
 
+useHead({
+  title: 'Produk - POS Owner'
+})
+
 const {
     form,
     isFormOpen,

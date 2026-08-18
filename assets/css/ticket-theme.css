@@ -9,20 +9,16 @@
 
 .stage {
   background-color: #1c1410;
-  background-image: radial-gradient(
-    circle at 1px 1px,
-    rgba(250, 246, 238, 0.05) 1px,
-    transparent 0
-  );
+  background-image: radial-gradient(circle at 1px 1px,
+      rgba(250, 246, 238, 0.05) 1px,
+      transparent 0);
   background-size: 22px 22px;
 }
 
 .glow {
-  background: radial-gradient(
-    circle,
-    rgba(184, 118, 60, 0.16) 0%,
-    transparent 70%
-  );
+  background: radial-gradient(circle,
+      rgba(184, 118, 60, 0.16) 0%,
+      transparent 70%);
   filter: blur(10px);
 }
 
@@ -81,7 +77,7 @@
   border-radius: 6px;
   padding: 0.7rem 0.85rem;
   font-size: 0.85rem;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: 'Poppins', sans-serif;
   color: #2b1b12;
   transition: border-color 0.15s ease;
 }
@@ -103,7 +99,7 @@
 .stamp {
   border: 1.5px solid #9b3a2e;
   color: #9b3a2e;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: 'Poppins', sans-serif;
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -118,7 +114,7 @@
 .stamp-success {
   border: 1.5px solid #2f7a4d;
   color: #2f7a4d;
-  font-family: "IBM Plex Mono", monospace;
+  font-family: 'Poppins', sans-serif;
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -183,6 +179,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .dot-spin,
   .btn-stamp {
     animation: none !important;

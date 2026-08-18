@@ -198,6 +198,11 @@ definePageMeta({
     middleware: ['auth']
 })
 
+useHead({
+  title: 'Dashboard - POS Kasir'
+})
+
+
 const { logout } = useAuth()
 const { stats, pending, fetchDashboardData, startPolling, stopPolling } = useDashboard(15000)
 
@@ -214,12 +219,6 @@ onUnmounted(() => {
   stopPolling()
 })
 
-useHead({
-    link: [
-        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-        { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap' }
-    ]
-})
 
 const today = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
     .format(new Date())

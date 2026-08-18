@@ -72,21 +72,6 @@
       class="ticket-card p-4 rounded-xl flex flex-col md:flex-row gap-4 items-center justify-between"
     >
       <div class="w-full md:w-80 relative">
-        <span
-          class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-[#8A7A68]"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="w-4 h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-        </span>
         <input
           v-model="searchQuery"
           type="text"
@@ -455,6 +440,11 @@ useHead({
     },
   ],
 });
+
+useHead({
+  title: 'Daftar Category - Kasir'
+})
+
 
 const { user } = useAuth();
 

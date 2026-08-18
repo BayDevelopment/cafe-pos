@@ -81,3 +81,8 @@ export type Order = Prisma.OrderModel
  * 
  */
 export type OrderItem = Prisma.OrderItemModel
+/**
+ * Model ShopSettings
+ * 
+ */
+export type ShopSettings = Prisma.ShopSettingsModel

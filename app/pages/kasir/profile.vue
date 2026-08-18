@@ -315,11 +315,7 @@
                   }}
                 </p>
                 <p class="mono text-[0.7rem] text-[#1c1410]/70 mt-1">
-                  {{
-                    user?.role === "PEMILIK"
-                      ? "Memiliki hak istimewa mengubah email kapan saja meskipun sudah terverifikasi."
-                      : "Email terkunci otomatis jika sudah terverifikasi demi keamanan."
-                  }}
+                  Email akan terkunci otomatis setelah diverifikasi demi alasan keamanan akun.
                 </p>
               </div>
 
@@ -344,10 +340,11 @@
                   }}
                 </p>
 
+                <!-- 👉 PERUBAHAN DI SINI: Tombol sekarang disable jika sedang kirim atau sedang cooldown -->
                 <button
                   v-if="!user?.emailVerifiedAt"
                   @click="handleSendVerification"
-                  :disabled="sendingVerification || verificationSent"
+                  :disabled="sendingVerification || resendCooldown > 0"
                   class="btn-verify mono inline-flex items-center gap-2 mt-1"
                 >
                   <LucideLoader2
@@ -386,7 +383,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from "vue";
+// 👉 PERUBAHAN DI SINI: Menambahkan onBeforeUnmount untuk membersihkan interval
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from "vue";
 
 definePageMeta({
   middleware: ["auth"],
@@ -416,15 +414,32 @@ function triggerAlert(msg: string, type: "success" | "error" = "success") {
   }, 3000);
 }
 
+// 👉 PERUBAHAN DI SINI: State baru untuk Cooldown Verifikasi
 const sendingVerification = ref(false);
 const verificationSent = ref(false);
 const verificationError = ref("");
+const resendCooldown = ref(0);
+let cooldownInterval: ReturnType<typeof setInterval> | null = null;
 
 const verifyButtonLabel = computed(() => {
   if (sendingVerification.value) return "MENGIRIM...";
-  if (verificationSent.value) return "EMAIL TERKIRIM";
+  if (resendCooldown.value > 0) return `KIRIM ULANG (${resendCooldown.value}s)`;
+  if (verificationSent.value) return "KIRIM ULANG EMAIL";
   return "VERIFIKASI EMAIL";
 });
+
+// Fungsi untuk memulai hitungan mundur
+function startCooldown(seconds = 60) {
+  resendCooldown.value = seconds;
+  if (cooldownInterval) clearInterval(cooldownInterval);
+  cooldownInterval = setInterval(() => {
+    resendCooldown.value--;
+    if (resendCooldown.value <= 0 && cooldownInterval) {
+      clearInterval(cooldownInterval);
+      cooldownInterval = null;
+    }
+  }, 1000);
+}
 
 const form = reactive({
   name: "",
@@ -435,9 +450,7 @@ const form = reactive({
 });
 
 const isEmailDisabled = computed(() => {
-  const isVerified = !!user.value?.emailVerifiedAt;
-  const isOwner = user.value?.role?.toUpperCase() === "PEMILIK";
-  return isVerified && !isOwner;
+  return !!user.value?.emailVerifiedAt;
 });
 
 const avatarUrl = computed(() => {
@@ -468,6 +481,11 @@ onMounted(async () => {
     form.email = user.value.email || "";
     pending.value = false;
   }
+});
+
+// 👉 PERUBAHAN DI SINI: Bersihkan interval saat pindah halaman agar tidak bocor
+onBeforeUnmount(() => {
+  if (cooldownInterval) clearInterval(cooldownInterval);
 });
 
 const resetPasswordFields = () => {
@@ -562,18 +580,24 @@ const updateProfile = async () => {
   }
 };
 
+// 👉 PERUBAHAN DI SINI: Handle Send Verification dengan Cooldown dan Toast Alert
 const handleSendVerification = async () => {
-  if (sendingVerification.value || verificationSent.value) return;
+  if (sendingVerification.value || resendCooldown.value > 0) return;
 
   verificationError.value = "";
   sendingVerification.value = true;
 
   try {
     await $fetch("/api/auth/send-verification", { method: "POST" });
+    
+    // Jika berhasil tanpa catch error
     verificationSent.value = true;
+    startCooldown(60); // Mulai hitungan mundur 60 detik
+    triggerAlert("Email verifikasi berhasil dikirim", "success");
+
   } catch (err: any) {
     verificationError.value =
-      err?.data?.message || err.message || "Gagal mengirim email verifikasi.";
+      err?.data?.statusMessage || err?.data?.message || err.message || "Gagal mengirim email verifikasi.";
   } finally {
     sendingVerification.value = false;
   }

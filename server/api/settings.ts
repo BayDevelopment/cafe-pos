@@ -11,16 +11,14 @@ const MAX_LOGO_SIZE = 1 * 1024 * 1024; // 1 MB
 const ALLOWED_EXT = [".jpg", ".jpeg", ".png", ".webp"];
 
 const MAX_SHOP_NAME_LEN = 255;
+const MAX_DESCRIPTION_LEN = 300;
 const MAX_ADDRESS_LEN = 500;
 const MAX_PHONE_LEN = 20;
 
-// Nomor telepon/WA Indonesia: boleh diawali +, angka, spasi, strip, kurung. 8-20 karakter.
+// Nomor telepon/WA Indonesia: boleh diawali +, angka, spasi, strip, kurung. 6-20 karakter.
 const PHONE_REGEX = /^[0-9+()\-\s]{6,20}$/;
 
-/**
- * Cek "magic bytes" di awal file agar isi file benar-benar gambar sesuai klaimnya,
- * bukan sekadar file lain yang diberi ekstensi .jpg/.png/.webp.
- */
+
 function detectImageType(buffer: Buffer): "jpg" | "png" | "webp" | null {
   if (buffer.length < 12) return null;
 
@@ -61,6 +59,23 @@ function extMatchesDetectedType(ext: string, detected: "jpg" | "png" | "webp"): 
   return false;
 }
 
+
+function toSnakeCaseResponse(settings: {
+  shopName: string;
+  description: string | null;
+  address: string;
+  phone: string;
+  logoUrl: string | null;
+}) {
+  return {
+    shop_name: settings.shopName,
+    description: settings.description,
+    address: settings.address,
+    phone: settings.phone,
+    logo_url: settings.logoUrl,
+  };
+}
+
 export default defineEventHandler(async (event) => {
   const method = getMethod(event);
 
@@ -68,9 +83,7 @@ export default defineEventHandler(async (event) => {
   // requireOwner melempar 401/403 secara eksplisit kalau tidak sesuai — tidak ada jalur silent-pass.
   await requireOwner(event);
 
-  // ---------------------------------------------------------------------
   // GET — Ambil pengaturan
-  // ---------------------------------------------------------------------
   if (method === "GET") {
     let settings = await db.shopSettings.findUnique({
       where: { id: "GLOBAL_SETTINGS" },
@@ -81,6 +94,7 @@ export default defineEventHandler(async (event) => {
         data: {
           id: "GLOBAL_SETTINGS",
           shopName: "Toko Baru",
+          description: "",
           address: "",
           phone: "",
           logoUrl: null,
@@ -88,16 +102,14 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    return { success: true, data: settings };
+    return { success: true, data: toSnakeCaseResponse(settings) };
   }
 
-  // ---------------------------------------------------------------------
-  // POST / PUT — Update pengaturan
-  // ---------------------------------------------------------------------
   if (method === "POST" || method === "PUT") {
     const files = await readMultipartFormData(event);
 
     let shopName = "";
+    let description = "";
     let address = "";
     let phone = "";
     let logoUrl: string | undefined = undefined;
@@ -107,6 +119,9 @@ export default defineEventHandler(async (event) => {
       for (const file of files) {
         if (file.name === "shop_name") {
           shopName = file.data.toString("utf8").trim();
+        }
+        if (file.name === "description") {
+          description = file.data.toString("utf8").trim();
         }
         if (file.name === "address") {
           address = file.data.toString("utf8").trim();
@@ -179,6 +194,11 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, message: `Nama toko tidak boleh melebihi ${MAX_SHOP_NAME_LEN} karakter.` });
     }
 
+    if (description.length > MAX_DESCRIPTION_LEN) {
+      await cleanupUploadedFileOnError();
+      throw createError({ statusCode: 400, message: `Deskripsi tidak boleh melebihi ${MAX_DESCRIPTION_LEN} karakter.` });
+    }
+
     if (address.length > MAX_ADDRESS_LEN) {
       await cleanupUploadedFileOnError();
       throw createError({ statusCode: 400, message: `Alamat tidak boleh melebihi ${MAX_ADDRESS_LEN} karakter.` });
@@ -205,6 +225,7 @@ export default defineEventHandler(async (event) => {
         where: { id: "GLOBAL_SETTINGS" },
         update: {
           shopName,
+          description,
           address,
           phone,
           ...(logoUrl !== undefined && { logoUrl }),
@@ -212,6 +233,7 @@ export default defineEventHandler(async (event) => {
         create: {
           id: "GLOBAL_SETTINGS",
           shopName,
+          description,
           address,
           phone,
           logoUrl: logoUrl || null,
@@ -235,7 +257,7 @@ export default defineEventHandler(async (event) => {
     return {
       success: true,
       message: "Pengaturan toko berhasil diperbarui.",
-      data: updatedSettings,
+      data: toSnakeCaseResponse(updatedSettings),
     };
   }
 

@@ -57,6 +57,7 @@ model User {
 
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
+
 }
 
 // Token untuk verifikasi email — expired otomatis, sekali pakai
@@ -164,4 +165,18 @@ model OrderItem {
 
   @@index([orderId])
   @@index([productId])
+}
+
+model ShopSettings {
+  id          String   @id @default(uuid())
+  logoUrl     String?  @map("logo_url")
+  shopName    String   @map("shop_name")
+  description String?  
+  address     String?  
+  phone       String?  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+
+  @@map("shop_settings")
 }

@@ -287,13 +287,6 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
-.display {
-  font-family: "Space Grotesk", sans-serif;
-}
-
-.mono {
-  font-family: "IBM Plex Mono", monospace;
-}
 
 .label-xs {
   font-size: 0.66rem;

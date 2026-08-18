@@ -16,7 +16,7 @@
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div class="flex items-center gap-2 mb-1">
-            <span class="mono label-xs px-2 py-0.5 rounded bg-[#2b1b12] text-[#faf6ee]">KASIR</span>
+          <span class="mono label-xs px-2 py-0.5 rounded bg-[#2b1b12] text-[#faf6ee]">{{ isOwner ? "PEMILIK" : "KASIR" }}</span>
             <span class="mono label-xs text-[#8A7A68]">RIWAYAT PENJUALAN</span>
           </div>
           <h1 class="display text-xl sm:text-2xl text-[#2b1b12] font-bold">Daftar Transaksi</h1>
@@ -77,8 +77,10 @@
         <select v-model="selectedStatus" :disabled="noDataAtAll"
           class="field mono text-xs p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 focus:outline-none focus:border-[#b8763c] disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto">
           <option value="">Semua Status</option>
-          <option value="SUCCESS">Selesai</option>
+          <option value="PAID">Lunas</option>
+          <option value="PENDING">Menunggu</option>
           <option value="CANCELLED">Dibatalkan</option>
+          <option value="REFUNDED">Refund</option>
         </select>
 
         <select v-model="selectedPayment" :disabled="noDataAtAll"
@@ -128,13 +130,27 @@
           </thead>
           <tbody class="divide-y divide-[#2b1b12]/5">
             <tr v-for="n in skeletonCount" :key="'sk-' + n">
-              <td class="px-5 py-4"><div class="skeleton h-4 w-20 rounded"></div></td>
-              <td class="px-5 py-4"><div class="skeleton h-4 w-24 rounded"></div></td>
-              <td class="px-5 py-4"><div class="skeleton h-4 w-24 rounded"></div></td>
-              <td class="px-5 py-4"><div class="skeleton h-4 w-16 rounded"></div></td>
-              <td class="px-5 py-4"><div class="skeleton h-4 w-16 rounded-full"></div></td>
-              <td class="px-5 py-4 text-right"><div class="skeleton h-4 w-20 rounded ml-auto"></div></td>
-              <td class="px-5 py-4 text-center"><div class="skeleton h-5 w-12 rounded mx-auto"></div></td>
+              <td class="px-5 py-4">
+                <div class="skeleton h-4 w-20 rounded"></div>
+              </td>
+              <td class="px-5 py-4">
+                <div class="skeleton h-4 w-24 rounded"></div>
+              </td>
+              <td class="px-5 py-4">
+                <div class="skeleton h-4 w-24 rounded"></div>
+              </td>
+              <td class="px-5 py-4">
+                <div class="skeleton h-4 w-16 rounded"></div>
+              </td>
+              <td class="px-5 py-4">
+                <div class="skeleton h-4 w-16 rounded-full"></div>
+              </td>
+              <td class="px-5 py-4 text-right">
+                <div class="skeleton h-4 w-20 rounded ml-auto"></div>
+              </td>
+              <td class="px-5 py-4 text-center">
+                <div class="skeleton h-5 w-12 rounded mx-auto"></div>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -193,6 +209,10 @@
                     <span class="inline-flex items-center gap-2">
                       #{{ formatInvoiceNo(trx.invoiceNo || trx.id) }}
                       <span v-if="isNew(trx.id)" class="badge badge-new">BARU</span>
+                      <span v-if="hasNewProduct(trx)" class="badge badge-new-product"
+                        title="Transaksi ini mengandung produk baru">
+                        PRODUK BARU
+                      </span>
                     </span>
                   </td>
                   <td class="px-5 py-4 mono text-xs text-[#8A7A68]">
@@ -202,14 +222,13 @@
                     {{ trx.customerName || 'Pelanggan Umum' }}
                   </td>
                   <td class="px-5 py-4">
-                    <span class="mono label-xs px-2 py-0.5 rounded bg-[#2b1b12]/5 text-[#2b1b12] border border-[#2b1b12]/10 uppercase">
+                    <span
+                      class="mono label-xs px-2 py-0.5 rounded bg-[#2b1b12]/5 text-[#2b1b12] border border-[#2b1b12]/10 uppercase">
                       {{ trx.paymentMethod || '-' }}
                     </span>
                   </td>
                   <td class="px-5 py-4">
-                    <span class="badge" :class="trx.status === 'SUCCESS' ? 'badge-success' : 'badge-danger'">
-                      {{ trx.status === 'SUCCESS' ? 'SELESAI' : 'BATAL' }}
-                    </span>
+                    <span class="badge" :class="getStatusClass(trx.status)">{{ getStatusLabel(trx.status) }}</span>
                   </td>
                   <td class="px-5 py-4 text-right display font-bold text-[#2b1b12] num">
                     {{ formatRupiah(trx.totalAmount) }}
@@ -256,14 +275,13 @@
                   <span v-if="isNew(trx.id)" class="badge badge-new">BARU</span>
                 </p>
                 <p class="mono text-[0.7rem] text-[#8A7A68] mt-0.5">
-                  Pelanggan: <span class="font-semibold text-[#2b1b12]">{{ trx.customerName || 'Pelanggan Umum' }}</span>
+                  Pelanggan: <span class="font-semibold text-[#2b1b12]">{{ trx.customerName || 'Pelanggan Umum'
+                    }}</span>
                 </p>
               </div>
 
               <div class="flex items-center gap-2">
-                <span class="badge" :class="trx.status === 'SUCCESS' ? 'badge-success' : 'badge-danger'">
-                  {{ trx.status === 'SUCCESS' ? 'SELESAI' : 'BATAL' }}
-                </span>
+                <span class="badge" :class="getStatusClass(trx.status)">{{ getStatusLabel(trx.status) }}</span>
 
                 <!-- TOMBOL ACTION MOBILE -->
                 <button type="button" class="p-1 rounded text-[#2b1b12] hover:text-[#b8763c] transition-colors"
@@ -342,7 +360,7 @@
             <p class="mono text-xs text-[#8A7A68]">
               Apakah Anda yakin ingin menghapus transaksi <span class="font-bold text-[#2b1b12]">#{{
                 formatInvoiceNo(trxToDelete.invoiceNo || trxToDelete.id)
-                }}</span>? Tindakan ini tidak dapat dibatalkan.
+              }}</span>? Tindakan ini tidak dapat dibatalkan.
             </p>
           </div>
 
@@ -475,12 +493,15 @@
 </template>
 
 <script setup>
+import { ref, computed, watch, onMounted, onUnmounted, onActivated, onDeactivated, reactive } from 'vue'
+
 useHead({
-  title: 'Riwayat Penjualan - POS Kasir'
+  title: 'Riwayat Penjualan - POS Owner'
 })
 
 // --- Token & Cookie Auth ---
 const token = useCookie('auth_token')
+const { user } = useAuth()
 
 // --- Pagination & filter state ---
 const page = ref(1)
@@ -491,6 +512,45 @@ const searchInput = ref('')
 const debouncedSearch = ref('')
 const selectedStatus = ref('')
 const selectedPayment = ref('')
+
+const isOwner = computed(() => {
+  return user.value?.role?.toUpperCase() === "PEMILIK"
+})
+
+const statusMap = {
+  PAID: { label: 'LUNAS', class: 'badge-success' },
+  PENDING: { label: 'MENUNGGU', class: 'badge-warning' },
+  CANCELLED: { label: 'BATAL', class: 'badge-danger' },
+  REFUNDED: { label: 'REFUND', class: 'badge-danger' }
+}
+
+const NEW_PRODUCT_THRESHOLD_DAYS = 7
+
+function isNewProductItem(item) {
+  const explicitFlag = item.product?.isNew ?? item.isNew ?? item.product?.is_new
+  if (typeof explicitFlag === 'boolean') return explicitFlag
+
+  const createdAt = item.product?.createdAt || item.productCreatedAt
+  if (!createdAt) return false
+
+  const created = new Date(createdAt)
+  if (isNaN(created.getTime())) return false
+
+  const diffDays = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24)
+  return diffDays >= 0 && diffDays <= NEW_PRODUCT_THRESHOLD_DAYS
+}
+
+function hasNewProduct(trx) {
+  const items = getItemList(trx)
+  return items.some(isNewProductItem)
+}
+
+function getStatusLabel(status) {
+  return statusMap[status]?.label || status || '-'
+}
+function getStatusClass(status) {
+  return statusMap[status]?.class || 'badge-danger'
+}
 
 let searchTimer = null
 watch(searchInput, (val) => {
@@ -538,7 +598,7 @@ const { data: response, pending, error: fetchError, refresh: refreshTransactions
 
 const rawTransactions = computed(() => response.value?.data || [])
 
-// Multi-field Client-Side Search Fallback (Memastikan jika backend tidak mendukung pencarian fleksibel)
+// Multi-field Client-Side Search Fallback
 const filteredTransactions = computed(() => {
   const query = debouncedSearch.value.toLowerCase()
   if (!query) return rawTransactions.value
@@ -682,7 +742,7 @@ const summary = computed(() => {
   if (response.value?.summary) {
     return { ...response.value.summary, scopedToPage: false }
   }
-  const successTrx = transactions.value.filter(t => t.status === 'SUCCESS')
+  const successTrx = transactions.value.filter(t => t.status === 'PAID')
   const totalAmount = successTrx.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0)
   const successCount = successTrx.length
   const average = successCount > 0 ? Math.round(totalAmount / successCount) : 0
@@ -836,6 +896,11 @@ function formatDate(dateString) {
   animation: dot-pulse 1s ease-in-out infinite;
 }
 
+.badge-warning {
+  background: #fbf0e2;
+  color: #b8763c;
+}
+
 @keyframes dot-pulse {
 
   0%,
@@ -889,6 +954,23 @@ function formatDate(dateString) {
 
   50% {
     background-color: rgba(184, 118, 60, 0.04);
+  }
+}
+
+.badge-new-product {
+  background: #eef3e9;
+  color: #4a7c4a;
+  font-size: 0.6rem;
+  padding: 0.15rem 0.4rem;
+  animation: badge-pulse-green 1.6s ease-in-out infinite;
+}
+
+@keyframes badge-pulse-green {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(74, 124, 74, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(74, 124, 74, 0);
   }
 }
 

@@ -11,8 +11,6 @@
             </div>
         </Transition>
 
-        <!-- HEADER / KARTU PROFIL UTAMA -->
-
         <!-- SKELETON HEADER -->
         <div v-if="pending && !user" class="ticket-card p-6 md:p-8 relative overflow-hidden bg-[#faf6ee]">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -103,7 +101,7 @@
                 </div>
             </template>
 
-            <!-- FORM EDIT PROFIL & PASSWORD (2 KOLOM) -->
+            <!-- FORM EDIT PROFIL & PASSWORD -->
             <template v-else>
                 <div class="ticket-card p-6 md:p-8 bg-[#faf6ee] md:col-span-2 space-y-6">
                     <div>
@@ -202,7 +200,6 @@
                 </div>
 
                 <!-- KARTU INFORMASI PERAN & STATUS (1 KOLOM) -->
-                <!-- self-start: tinggi card ini mengikuti konten sendiri, tidak ikut stretch mengikuti card sebelah kiri -->
                 <div class="ticket-card p-6 md:p-8 bg-[#faf6ee] space-y-6 self-start">
                     <div>
                         <h3 class="display text-lg text-[#1c1410] font-bold flex items-center gap-2 mb-4">
@@ -214,11 +211,10 @@
                             <div class="p-4 rounded-xl border border-[#1c1410]/10 bg-white/40 space-y-1">
                                 <span class="mono label-xs text-[#1c1410]/60">HAK AKSES SISTEM</span>
                                 <p class="display text-base font-bold text-[#1c1410]">
-                                    {{ user?.role === 'PEMILIK' ? 'Pemilik Toko' : 'Kasir / POS Operator'
-                                    }}
+                                    {{ user?.role === 'PEMILIK' ? 'Pemilik Toko' : 'Kasir / POS Operator' }}
                                 </p>
                                 <p class="mono text-[0.7rem] text-[#1c1410]/70 mt-1">
-                                    {{ user?.role === 'PEMILIK' ? 'Memiliki hak istimewa mengubah email kapan saja meskipun sudah terverifikasi.' : 'Email terkunci otomatis jika sudah terverifikasi demi keamanan.' }}
+                                    Email akan terkunci otomatis setelah diverifikasi demi alasan keamanan akun.
                                 </p>
                             </div>
 
@@ -230,7 +226,7 @@
                                 </p>
 
                                 <button v-if="!user?.emailVerifiedAt" @click="handleSendVerification"
-                                    :disabled="sendingVerification || verificationSent"
+                                    :disabled="sendingVerification || resendCooldown > 0"
                                     class="btn-verify mono inline-flex items-center gap-2 mt-1">
                                     <LucideLoader2 v-if="sendingVerification" class="w-3.5 h-3.5 animate-spin" />
                                     <LucideMailCheck v-else class="w-3.5 h-3.5" />
@@ -261,7 +257,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 
 definePageMeta({
     middleware: ['auth']
@@ -289,14 +285,58 @@ function triggerAlert(msg: string, type: 'success' | 'error' = 'success') {
     }, 3000)
 }
 
+// --- Verifikasi Email ---
 const sendingVerification = ref(false)
 const verificationSent = ref(false)
 const verificationError = ref('')
+const resendCooldown = ref(0) // detik tersisa sebelum bisa kirim ulang
+let cooldownInterval: ReturnType<typeof setInterval> | null = null
 
 const verifyButtonLabel = computed(() => {
     if (sendingVerification.value) return 'MENGIRIM...'
-    if (verificationSent.value) return 'EMAIL TERKIRIM'
+    if (resendCooldown.value > 0) return `KIRIM ULANG (${resendCooldown.value}s)`
+    if (verificationSent.value) return 'KIRIM ULANG EMAIL'
     return 'VERIFIKASI EMAIL'
+})
+
+function startCooldown(seconds = 60) {
+    resendCooldown.value = seconds
+    if (cooldownInterval) clearInterval(cooldownInterval)
+    cooldownInterval = setInterval(() => {
+        resendCooldown.value--
+        if (resendCooldown.value <= 0 && cooldownInterval) {
+            clearInterval(cooldownInterval)
+            cooldownInterval = null
+        }
+    }, 1000)
+}
+
+async function handleSendVerification() {
+    if (sendingVerification.value || resendCooldown.value > 0) return
+
+    verificationError.value = ''
+    sendingVerification.value = true
+
+    try {
+        const res: any = await $fetch('/api/auth/send-verification', {
+            method: 'POST',
+            credentials: 'include',
+        })
+
+        if (res?.success) {
+            verificationSent.value = true
+            startCooldown(60) // gak bisa kirim ulang selama 60 detik
+            triggerAlert('Email verifikasi berhasil dikirim', 'success')
+        }
+    } catch (err: any) {
+        verificationError.value = err?.data?.statusMessage || err?.data?.message || err.message || 'Gagal mengirim email verifikasi.'
+    } finally {
+        sendingVerification.value = false
+    }
+}
+
+onBeforeUnmount(() => {
+    if (cooldownInterval) clearInterval(cooldownInterval)
 })
 
 const form = reactive({
@@ -307,11 +347,9 @@ const form = reactive({
     confirmPassword: ''
 })
 
-// Logika Frontend: Email disable jika sudah terverifikasi DAN role BUKAN PEMILIK
+// 👉 PERUBAHAN DI SINI: Email di-disable pokoknya jika sudah terverifikasi (tanpa peduli role)
 const isEmailDisabled = computed(() => {
-    const isVerified = !!user.value?.emailVerifiedAt
-    const isOwner = user.value?.role?.toUpperCase() === 'PEMILIK'
-    return isVerified && !isOwner
+    return !!user.value?.emailVerifiedAt
 })
 
 // Encode nama agar query string avatar tidak rusak jika ada spasi/simbol
@@ -393,7 +431,7 @@ const updateProfile = async () => {
 
         if (res?.success) {
             triggerAlert('Profil dan keamanan berhasil diperbarui!', 'success')
-            
+
             // 👉 UPDATE STATE GLOBAL SECARA INSTAN AGAR NAVBAR LANGSUNG BERUBAH
             updateUser({ name: form.name, email: form.email })
 
@@ -404,22 +442,6 @@ const updateProfile = async () => {
         triggerAlert(err?.data?.message || err.message || 'Gagal memperbarui profil.', 'error')
     } finally {
         loadingUpdate.value = false
-    }
-}
-
-const handleSendVerification = async () => {
-    if (sendingVerification.value || verificationSent.value) return
-
-    verificationError.value = ''
-    sendingVerification.value = true
-
-    try {
-        await $fetch('/api/auth/send-verification', { method: 'POST' })
-        verificationSent.value = true
-    } catch (err: any) {
-        verificationError.value = err?.data?.message || err.message || 'Gagal mengirim email verifikasi.'
-    } finally {
-        sendingVerification.value = false
     }
 }
 
@@ -445,7 +467,6 @@ useHead({
     title: 'Profil Pengguna - Kedai Kopi POS',
 })
 </script>
-
 
 <style scoped>
 .label-xs {

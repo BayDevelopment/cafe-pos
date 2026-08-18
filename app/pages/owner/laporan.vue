@@ -468,14 +468,8 @@
 import { ref, computed, onMounted } from "vue";
 
 useHead({
-  link: [
-    { rel: "preconnect", href: "https://fonts.googleapis.com" },
-    {
-      rel: "stylesheet",
-      href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap",
-    },
-  ],
-});
+  title: 'Laporan Keuangn dan Omset - POS Owner'
+})
 
 const isExporting = ref(false);
 const currentPage = ref(1);

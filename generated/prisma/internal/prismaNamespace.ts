@@ -404,7 +404,8 @@ export const ModelName = {
   Category: 'Category',
   Product: 'Product',
   Order: 'Order',
-  OrderItem: 'OrderItem'
+  OrderItem: 'OrderItem',
+  ShopSettings: 'ShopSettings'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -420,7 +421,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "verificationToken" | "passwordResetToken" | "employee" | "category" | "product" | "order" | "orderItem"
+    modelProps: "user" | "verificationToken" | "passwordResetToken" | "employee" | "category" | "product" | "order" | "orderItem" | "shopSettings"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -1016,6 +1017,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    ShopSettings: {
+      payload: Prisma.$ShopSettingsPayload<ExtArgs>
+      fields: Prisma.ShopSettingsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ShopSettingsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ShopSettingsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ShopSettingsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ShopSettingsPayload>
+        }
+        findFirst: {
+          args: Prisma.ShopSettingsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ShopSettingsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ShopSettingsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ShopSettingsPayload>
+        }
+        findMany: {
+          args: Prisma.ShopSettingsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ShopSettingsPayload>[]
+        }
+        create: {
+          args: Prisma.ShopSettingsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ShopSettingsPayload>
+        }
+        createMany: {
+          args: Prisma.ShopSettingsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ShopSettingsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ShopSettingsPayload>[]
+        }
+        delete: {
+          args: Prisma.ShopSettingsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ShopSettingsPayload>
+        }
+        update: {
+          args: Prisma.ShopSettingsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ShopSettingsPayload>
+        }
+        deleteMany: {
+          args: Prisma.ShopSettingsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ShopSettingsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ShopSettingsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ShopSettingsPayload>[]
+        }
+        upsert: {
+          args: Prisma.ShopSettingsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ShopSettingsPayload>
+        }
+        aggregate: {
+          args: Prisma.ShopSettingsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateShopSettings>
+        }
+        groupBy: {
+          args: Prisma.ShopSettingsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ShopSettingsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ShopSettingsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ShopSettingsCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -1163,6 +1238,20 @@ export const OrderItemScalarFieldEnum = {
 } as const
 
 export type OrderItemScalarFieldEnum = (typeof OrderItemScalarFieldEnum)[keyof typeof OrderItemScalarFieldEnum]
+
+
+export const ShopSettingsScalarFieldEnum = {
+  id: 'id',
+  logoUrl: 'logoUrl',
+  shopName: 'shopName',
+  description: 'description',
+  address: 'address',
+  phone: 'phone',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ShopSettingsScalarFieldEnum = (typeof ShopSettingsScalarFieldEnum)[keyof typeof ShopSettingsScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -1486,6 +1575,7 @@ export type GlobalOmitConfig = {
   product?: Prisma.ProductOmit
   order?: Prisma.OrderOmit
   orderItem?: Prisma.OrderItemOmit
+  shopSettings?: Prisma.ShopSettingsOmit
 }
 
 /* Types for Logging */

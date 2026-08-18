@@ -575,6 +575,11 @@
 <script setup>
 const { user } = useAuth();
 
+useHead({
+  title: 'Daftar Produk - Kasir'
+})
+
+
 // Cek apakah role user yang sedang login adalah PEMILIK
 const isOwner = computed(() => {
   return user.value?.role?.toUpperCase() === "PEMILIK";
