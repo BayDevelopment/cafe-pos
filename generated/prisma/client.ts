@@ -82,6 +82,16 @@ export type Order = Prisma.OrderModel
  */
 export type OrderItem = Prisma.OrderItemModel
 /**
+ * Model OrderRequest
+ * 
+ */
+export type OrderRequest = Prisma.OrderRequestModel
+/**
+ * Model OrderRequestItem
+ * 
+ */
+export type OrderRequestItem = Prisma.OrderRequestItemModel
+/**
  * Model ShopSettings
  * 
  */

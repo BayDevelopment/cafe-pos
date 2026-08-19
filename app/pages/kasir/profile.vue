@@ -403,6 +403,51 @@ const alertMessage = ref("");
 const alertType = ref<"success" | "error">("success");
 const showAlert = ref(false);
 let alertTimeout: ReturnType<typeof setTimeout> | null = null;
+let eventSource: EventSource | null = null
+
+const connectStatusStream = () => {
+  if (eventSource) return
+
+  eventSource = new EventSource('/api/auth/status-stream')
+
+  eventSource.addEventListener('force-logout', async (e: MessageEvent) => {
+    const data = JSON.parse(e.data)
+    triggerAlert(data.reason || 'Sesi Anda diakhiri.', 'error')
+
+    eventSource?.close()
+    eventSource = null
+
+    try {
+      await logout()
+    } finally {
+      setTimeout(() => {
+        navigateTo('/kasir/login', { replace: true })
+      }, 1500)
+    }
+  })
+
+  eventSource.addEventListener('profile-updated', (e: MessageEvent) => {
+    const data = JSON.parse(e.data)
+
+    updateUser({
+      emailVerifiedAt: data.emailVerifiedAt,
+      isActive: data.isActive,
+    })
+
+    if (data.emailVerifiedAt) {
+      triggerAlert('Email Anda baru saja terverifikasi.', 'success')
+    }
+  })
+
+  eventSource.onerror = () => {
+    console.warn('[SSE] Koneksi status stream terputus, mencoba reconnect otomatis...')
+  }
+}
+
+const disconnectStatusStream = () => {
+  eventSource?.close()
+  eventSource = null
+}
 
 function triggerAlert(msg: string, type: "success" | "error" = "success") {
   if (alertTimeout) clearTimeout(alertTimeout);
@@ -481,11 +526,13 @@ onMounted(async () => {
     form.email = user.value.email || "";
     pending.value = false;
   }
+
+  connectStatusStream()
 });
 
-// 👉 PERUBAHAN DI SINI: Bersihkan interval saat pindah halaman agar tidak bocor
 onBeforeUnmount(() => {
   if (cooldownInterval) clearInterval(cooldownInterval);
+  disconnectStatusStream()
 });
 
 const resetPasswordFields = () => {

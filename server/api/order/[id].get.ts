@@ -31,7 +31,10 @@ export default defineEventHandler(async (event) => {
       include: {
         cashier: { select: { id: true, name: true, email: true, role: true } },
         orderItems: {
-          include: { product: { select: { id: true, name: true, price: true } } },
+          include: { 
+            // 👉 Tambahkan 'discount' agar riwayat detail produk menampilkan info diskon jika diperlukan
+            product: { select: { id: true, name: true, price: true, discount: true } } 
+          },
         },
       },
     });

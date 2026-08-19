@@ -11,6 +11,7 @@ export const useProductManager = () => {
     name: '',
     sku: '',
     price: 0,
+    discount: 0, // <-- Added
     costPrice: 0,
     stock: 0,
     categoryId: 0,
@@ -21,6 +22,7 @@ export const useProductManager = () => {
     form.name = ''
     form.sku = ''
     form.price = 0
+    form.discount = 0 // <-- Added
     form.costPrice = 0
     form.stock = 0
     form.categoryId = 0
@@ -38,6 +40,7 @@ export const useProductManager = () => {
       form.name = product.name
       form.sku = product.sku || ''
       form.price = product.price
+      form.discount = product.discount || 0 // <-- Added
       form.costPrice = product.costPrice || 0
       form.stock = product.stock
       form.categoryId = product.categoryId
@@ -92,6 +95,7 @@ export const useProductManager = () => {
       formData.append('name', form.name)
       formData.append('sku', form.sku)
       formData.append('price', String(form.price))
+      formData.append('discount', String(form.discount || 0)) // <-- Added
       formData.append('costPrice', String(form.costPrice))
       formData.append('stock', String(form.stock))
       formData.append('categoryId', String(form.categoryId))
@@ -104,7 +108,6 @@ export const useProductManager = () => {
       const url = editingProduct.value ? `/api/products/${editingProduct.value.id}` : '/api/products'
       const method = editingProduct.value ? 'PUT' : 'POST'
 
-      // Tambahkan credentials: 'include' agar cookies session owner ikut terkirim ke backend
       await $fetch(url, { 
         method, 
         body: formData,
@@ -121,7 +124,6 @@ export const useProductManager = () => {
   }
 
   async function deleteProduct(product: any, refreshCallback?: Function) {
-    // Tambahkan credentials: 'include' di sini juga
     await $fetch(`/api/products/${product.id}`, { 
       method: 'DELETE',
       credentials: 'include'

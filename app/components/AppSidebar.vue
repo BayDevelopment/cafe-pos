@@ -177,6 +177,7 @@ const menuGroups = computed(() => {
     {
       label: 'Manajemen Kedai',
       items: [
+        { label: 'Pesanan Masuk', to: role.value === 'PEMILIK' ? '/owner/pesanan-masuk' : '/kasir/pesanan-masuk', icon: resolveComponent('LucideBellRing') },
         { label: 'Daftar Produk', to: role.value === 'PEMILIK' ? '/owner/product' : '/kasir/product', icon: resolveComponent('LucidePackage') },
         { label: 'Kategori Menu', to: role.value === 'PEMILIK' ? '/owner/category' : '/kasir/category', icon: resolveComponent('LucideTags') },
         { label: 'Riwayat Transaksi', to: role.value === 'PEMILIK' ? '/owner/transaksi' : '/kasir/transaksi', icon: resolveComponent('LucideReceiptText') },

@@ -23,18 +23,15 @@
                         KATALOG</span>
                 </div>
                 <h1 class="text-xl md:text-2xl text-[#2b1b12] font-bold tracking-tight">Daftar Produk & Stok</h1>
-                <p class="text-xs text-[#8A7A68] mt-0.5">Kontrol penuh menu, harga, modal, dan penghapusan data produk
-                    toko.</p>
+                <p class="text-xs text-[#8A7A68] mt-0.5">Kontrol penuh menu, harga, diskon, modal, dan stok produk toko.</p>
             </div>
 
             <div class="flex items-center gap-3 w-full md:w-auto">
-                <!-- Tombol Dashboard -->
                 <NuxtLink to="/owner/dashboard"
                     class="btn-cancel text-xs px-4 py-2.5 rounded-lg no-underline font-semibold flex items-center justify-center">
                     ← Dashboard
                 </NuxtLink>
 
-                <!-- Tombol Tambah Produk (Class disamakan persis dengan Dashboard) -->
                 <button @click="openForm(null, categories)"
                     class="btn-cancel text-xs px-4 py-2.5 rounded-lg no-underline font-semibold flex items-center justify-center gap-1.5 w-full md:w-auto">
                     <span>＋</span> TAMBAH PRODUK
@@ -45,15 +42,13 @@
         <!-- FILTER & SEARCH -->
         <div class="ticket-card p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-                <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Cari
-                    Produk</label>
+                <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Cari Produk</label>
                 <input v-model="searchQuery" type="text" placeholder="Nama produk atau SKU..."
                     class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full focus:border-[#b8763c] outline-none font-normal" />
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Filter
-                    Kategori</label>
+                <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Filter Kategori</label>
                 <select v-model="selectedCategory"
                     class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none font-normal">
                     <option value="">Semua Kategori</option>
@@ -62,8 +57,7 @@
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Filter
-                    Status</label>
+                <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Filter Status</label>
                 <select v-model="selectedStatus"
                     class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none font-normal">
                     <option value="">Semua Status</option>
@@ -102,8 +96,7 @@
         <!-- ERROR STATE -->
         <div v-else-if="fetchError" class="ticket-card p-10 text-center space-y-3">
             <p class="text-xs text-[#9b3a2e] font-medium">Gagal memuat data produk.</p>
-            <button @click="refreshProducts" class="btn-stamp inline-flex px-4 py-2 text-xs font-semibold">COBA
-                LAGI</button>
+            <button @click="refreshProducts" class="btn-stamp inline-flex px-4 py-2 text-xs font-semibold">COBA LAGI</button>
         </div>
 
         <!-- TABEL PRODUK -->
@@ -112,24 +105,12 @@
                 <table class="w-full text-sm min-w-[640px]">
                     <thead>
                         <tr class="border-b border-[#2b1b12]/10 bg-[#f4eee3]">
-                            <th
-                                class="text-xs font-semibold text-left text-[#8A7A68] px-5 py-3 uppercase tracking-wider">
-                                Info Produk</th>
-                            <th
-                                class="text-xs font-semibold text-left text-[#8A7A68] px-5 py-3 uppercase tracking-wider">
-                                Kategori</th>
-                            <th
-                                class="text-xs font-semibold text-left text-[#8A7A68] px-5 py-3 uppercase tracking-wider">
-                                Harga</th>
-                            <th
-                                class="text-xs font-semibold text-left text-[#8A7A68] px-5 py-3 uppercase tracking-wider">
-                                Stok</th>
-                            <th
-                                class="text-xs font-semibold text-center text-[#8A7A68] px-5 py-3 uppercase tracking-wider">
-                                Status</th>
-                            <th
-                                class="text-xs font-semibold text-right text-[#8A7A68] px-5 py-3 uppercase tracking-wider">
-                                Aksi</th>
+                            <th class="text-xs font-semibold text-left text-[#8A7A68] px-5 py-3 uppercase tracking-wider">Info Produk</th>
+                            <th class="text-xs font-semibold text-left text-[#8A7A68] px-5 py-3 uppercase tracking-wider">Kategori</th>
+                            <th class="text-xs font-semibold text-left text-[#8A7A68] px-5 py-3 uppercase tracking-wider">Harga & Diskon</th>
+                            <th class="text-xs font-semibold text-left text-[#8A7A68] px-5 py-3 uppercase tracking-wider">Stok</th>
+                            <th class="text-xs font-semibold text-center text-[#8A7A68] px-5 py-3 uppercase tracking-wider">Status</th>
+                            <th class="text-xs font-semibold text-right text-[#8A7A68] px-5 py-3 uppercase tracking-wider">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -144,27 +125,35 @@
                                         IMG</div>
                                     <div>
                                         <p class="font-bold text-[#2b1b12] text-sm">{{ product.name }}</p>
-                                        <p v-if="product.sku" class="text-[10px] text-[#8A7A68]">SKU: {{ product.sku }}
-                                        </p>
+                                        <p v-if="product.sku" class="text-[10px] text-[#8A7A68]">SKU: {{ product.sku }}</p>
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-5 py-4 text-xs text-[#2b1b12] font-medium">{{ product.category?.name || '-' }}
-                            </td>
-                            <td class="px-5 py-4 text-[#2b1b12] font-semibold text-sm">
-                                {{ formatCurrency(product.price) }}
-                                <div v-if="product.costPrice" class="text-[10px] text-[#8A7A68] font-normal">Modal: {{
-                                    formatCurrency(product.costPrice) }}</div>
+                            <td class="px-5 py-4 text-xs text-[#2b1b12] font-medium">{{ product.category?.name || '-' }}</td>
+                            <td class="px-5 py-4 text-[#2b1b12]">
+                                <div v-if="product.discount && Number(product.discount) > 0">
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="font-bold text-sm text-[#2b1b12]">{{ formatCurrency(Number(product.price) - Number(product.discount)) }}</span>
+                                        <span class="text-[10px] bg-[#9b3a2e]/10 text-[#9b3a2e] px-1.5 py-0.5 rounded font-semibold">
+                                            -{{ formatCurrency(product.discount) }}
+                                        </span>
+                                    </div>
+                                    <p class="text-[11px] text-[#8A7A68] line-through font-normal">{{ formatCurrency(product.price) }}</p>
+                                </div>
+                                <div v-else class="font-semibold text-sm">
+                                    {{ formatCurrency(product.price) }}
+                                </div>
+                                <div v-if="product.costPrice" class="text-[10px] text-[#8A7A68] font-normal mt-0.5">
+                                    Modal: {{ formatCurrency(product.costPrice) }}
+                                </div>
                             </td>
                             <td class="px-5 py-4">
-                                <span
-                                    :class="['text-xs px-2.5 py-1 rounded font-semibold inline-block', product.stock > 5 ? 'bg-[#2f7a46]/10 text-[#2f7a46]' : 'bg-[#9b3a2e]/10 text-[#9b3a2e]']">
+                                <span :class="['text-xs px-2.5 py-1 rounded font-semibold inline-block', product.stock > 5 ? 'bg-[#2f7a46]/10 text-[#2f7a46]' : 'bg-[#9b3a2e]/10 text-[#9b3a2e]']">
                                     {{ product.stock }} Pcs
                                 </span>
                             </td>
                             <td class="px-5 py-4 text-center">
-                                <span
-                                    :class="['text-[10px] px-2 py-0.5 rounded font-semibold inline-block', product.isActive ? 'bg-[#2f7a46]/10 text-[#2f7a46]' : 'bg-[#8A7A68]/10 text-[#8A7A68]']">
+                                <span :class="['text-[10px] px-2 py-0.5 rounded font-semibold inline-block', product.isActive ? 'bg-[#2f7a46]/10 text-[#2f7a46]' : 'bg-[#8A7A68]/10 text-[#8A7A68]']">
                                     {{ product.isActive ? 'AKTIF' : 'NONAKTIF' }}
                                 </span>
                             </td>
@@ -172,26 +161,17 @@
                                 <div class="flex items-center justify-end gap-2">
                                     <button @click="openForm(product, categories)" title="Edit Product"
                                         class="p-2 rounded-lg bg-[#b8763c]/10 text-[#b8763c] hover:bg-[#b8763c] hover:text-[#faf6ee] active:scale-95 transition-all duration-150">
-
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24"
-                                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                            stroke-linejoin="round">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                                         </svg>
                                     </button>
 
-                                    <!-- Tombol Hapus (Pemilik memiliki akses penuh) -->
                                     <button @click="confirmDelete(product)" title="Hapus Product"
                                         class="p-2 rounded-lg bg-[#9b3a2e]/10 text-[#9b3a2e] hover:bg-[#9b3a2e] hover:text-[#faf6ee] active:scale-95 transition-all duration-150">
-
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24"
-                                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                            stroke-linejoin="round">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <polyline points="3 6 5 6 21 6"></polyline>
-                                            <path
-                                                d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
-                                            </path>
+                                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                                             <line x1="10" y1="11" x2="10" y2="17"></line>
                                             <line x1="14" y1="11" x2="14" y2="17"></line>
                                         </svg>
@@ -207,8 +187,7 @@
             </div>
 
             <!-- PAGINATION CONTROLS -->
-            <div
-                class="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-[#2b1b12]/10 bg-[#f4eee3]/30">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-[#2b1b12]/10 bg-[#f4eee3]/30">
                 <span class="text-xs text-[#8A7A68]">
                     Halaman <strong class="text-[#2b1b12] font-semibold">{{ pagination.currentPage }}</strong> dari
                     <strong class="text-[#2b1b12] font-semibold">{{ pagination.totalPages || 1 }}</strong> (Total
@@ -244,9 +223,7 @@
 
                     <form class="space-y-4" @submit.prevent="handleSaveProduct" novalidate>
                         <div>
-                            <label
-                                class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Kategori
-                                *</label>
+                            <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Kategori *</label>
                             <select v-model.number="form.categoryId" required
                                 class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal">
                                 <option :value="0" disabled>-- Pilih Kategori --</option>
@@ -255,22 +232,19 @@
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Nama
-                                Produk *</label>
+                            <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Nama Produk *</label>
                             <input v-model.trim="form.name" type="text" required placeholder="Contoh: Kopi Susu"
                                 class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal" />
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">SKU
-                                (Opsional)</label>
+                            <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">SKU (Opsional)</label>
                             <input v-model.trim="form.sku" type="text" placeholder="Contoh: KOP-01"
                                 class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal" />
                         </div>
 
                         <div>
-                            <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">File
-                                Gambar Produk (Opsional)</label>
+                            <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">File Gambar Produk (Opsional)</label>
                             <input type="file" accept="image/png, image/jpeg" @change="handleFileChange"
                                 class="field text-xs p-2 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-[#2b1b12] file:text-[#faf6ee] hover:file:bg-[#b8763c] font-normal" />
 
@@ -281,34 +255,32 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div>
-                                <label
-                                    class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Harga
-                                    Jual (Rp) *</label>
-                                <input v-model.number="form.price" type="number" step="0.01" min="0" required
+                                <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Harga Jual (Rp) *</label>
+                                <input v-model.number="form.price" type="number" step="any" min="0" required
                                     class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal" />
                             </div>
                             <div>
-                                <label
-                                    class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Harga
-                                    Modal (Rp)</label>
-                                <input v-model.number="form.costPrice" type="number" step="0.01" min="0"
+                                <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Diskon (Rp)</label>
+                                <input v-model.number="form.discount" type="number" step="any" min="0"
+                                    class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal" placeholder="0" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Harga Modal (Rp)</label>
+                                <input v-model.number="form.costPrice" type="number" step="any" min="0"
                                     class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal" />
                             </div>
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                                <label
-                                    class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Stok
-                                    (Pcs) *</label>
+                                <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Stok (Pcs) *</label>
                                 <input v-model.number="form.stock" type="number" min="0" required
                                     class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal" />
                             </div>
                             <div>
-                                <label
-                                    class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Status</label>
+                                <label class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider">Status</label>
                                 <label class="flex items-center gap-2 mt-2.5 cursor-pointer">
                                     <input v-model="form.isActive" type="checkbox" class="w-4 h-4 accent-[#2b1b12]" />
                                     <span class="text-xs text-[#2b1b12] font-semibold">Aktif dijual</span>
@@ -339,14 +311,10 @@
                 @click.self="cancelDelete">
                 <div class="ticket-card w-full max-w-sm p-6 space-y-4">
                     <div class="text-center space-y-2">
-                        <div
-                            class="w-12 h-12 rounded-full bg-[#9b3a2e]/10 text-[#9b3a2e] flex items-center justify-center mx-auto">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24"
-                                stroke="currentColor" stroke-width="2">
+                        <div class="w-12 h-12 rounded-full bg-[#9b3a2e]/10 text-[#9b3a2e] flex items-center justify-center mx-auto">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <polyline points="3 6 5 6 21 6"></polyline>
-                                <path
-                                    d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
-                                </path>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                                 <line x1="10" y1="11" x2="10" y2="17"></line>
                                 <line x1="14" y1="11" x2="14" y2="17"></line>
                             </svg>
@@ -442,7 +410,7 @@ const { data: categoryResponse } = await useFetch('/api/categories')
 const categories = computed(() => categoryResponse.value?.data || [])
 
 function formatCurrency(val) {
-    if (val === null || val === undefined) return 'Rp 0'
+    if (val === null || val === undefined || isNaN(Number(val))) return 'Rp 0'
     return 'Rp ' + Number(val).toLocaleString('id-ID')
 }
 
@@ -462,11 +430,19 @@ function triggerAlert(msg, type = 'success') {
 
 // --- Simpan Produk ---
 async function handleSaveProduct() {
-    const wasEditing = !!editingProduct.value
+    const isEditing = unref(editingProduct)
+    const wasEditing = !!isEditing
+
+    // Membaca object form secara aman (kompatibel dengan Ref maupun Reactive)
+    const formObj = unref(form) || form
+    if (formObj && (formObj.discount === undefined || formObj.discount === null || formObj.discount === '')) {
+        formObj.discount = 0
+    }
 
     await saveProduct(refreshProducts)
 
-    if (!formError.value) {
+    const currentError = unref(formError)
+    if (!currentError) {
         triggerAlert(
             wasEditing ? 'Produk berhasil diperbarui!' : 'Produk berhasil ditambahkan!',
             'success'
@@ -474,7 +450,7 @@ async function handleSaveProduct() {
     }
 }
 
-// --- Konfirmasi Hapus Produk (Pemilik) ---
+// --- Konfirmasi Hapus Produk ---
 const productToDelete = ref(null)
 const isDeleting = ref(false)
 
@@ -546,17 +522,12 @@ async function executeDelete() {
     background: #b8763c;
 }
 
-.display {
-    font-family: 'Space Grotesk', sans-serif;
-}
-
 .label-xs {
     font-size: 0.66rem;
     text-transform: uppercase;
     letter-spacing: 0.11em;
 }
 
-/* SKELETON LOADING */
 .skeleton {
     background: linear-gradient(90deg, #ede4d3 25%, #f4eee3 37%, #ede4d3 63%);
     background-size: 400% 100%;
@@ -573,7 +544,6 @@ async function executeDelete() {
     }
 }
 
-/* TOAST TRANSITION */
 .slide-fade-enter-active,
 .slide-fade-leave-active {
     transition: all 0.25s ease;

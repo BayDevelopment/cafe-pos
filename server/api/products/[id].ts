@@ -64,8 +64,9 @@ export default defineEventHandler(async (event) => {
 
     let name = existingProduct.name;
     let sku = existingProduct.sku;
-    let price = existingProduct.price as unknown as number;
-    let costPrice = existingProduct.costPrice as unknown as number | null;
+    let price = Number(existingProduct.price);
+    let costPrice = existingProduct.costPrice ? Number(existingProduct.costPrice) : null;
+    let discount = Number(existingProduct.discount || 0);
     let stock = existingProduct.stock;
     let categoryId = existingProduct.categoryId;
     let isActive = existingProduct.isActive;
@@ -105,6 +106,14 @@ export default defineEventHandler(async (event) => {
         costPrice = parsed;
       }
 
+      if (fieldName === "discount" && value !== "") {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed) || parsed < 0) {
+          throw createError({ statusCode: 400, message: "Diskon produk harus berupa angka dan tidak boleh negatif." });
+        }
+        discount = parsed;
+      }
+
       if (fieldName === "stock" && value !== "") {
         const parsed = Number(value);
         if (!Number.isInteger(parsed) || parsed < 0) {
@@ -128,7 +137,10 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Kalau kategori diganti, pastikan kategori barunya benar-benar ada.
+    if (discount > price) {
+      throw createError({ statusCode: 400, message: "Diskon tidak boleh melebihi harga jual produk." });
+    }
+
     if (categoryId !== existingProduct.categoryId) {
       const categoryExists = await db.category.findUnique({ where: { id: categoryId }, select: { id: true } });
       if (!categoryExists) {
@@ -161,7 +173,6 @@ export default defineEventHandler(async (event) => {
       await fs.writeFile(fullPath, uploadedFile.data);
       savedFilePath = fullPath;
       newImagePath = `/uploads/${randomFileName}`;
-      // PENTING: gambar LAMA belum dihapus di sini — baru dihapus setelah update DB sukses di bawah.
     }
 
     try {
@@ -172,6 +183,7 @@ export default defineEventHandler(async (event) => {
           sku,
           price,
           costPrice,
+          discount,
           stock,
           categoryId,
           isActive,
@@ -179,7 +191,6 @@ export default defineEventHandler(async (event) => {
         },
       });
 
-      // Update DB sukses — baru sekarang aman menghapus gambar lama (kalau memang diganti).
       if (newImagePath && existingProduct.image) {
         await safeDeleteFile(existingProduct.image);
       }
@@ -187,19 +198,22 @@ export default defineEventHandler(async (event) => {
       return {
         success: true,
         message: "Produk berhasil diperbarui",
-        data: updatedProduct,
+        data: {
+          ...updatedProduct,
+          price: Number(updatedProduct.price),
+          discount: Number(updatedProduct.discount),
+          costPrice: updatedProduct.costPrice ? Number(updatedProduct.costPrice) : null,
+        },
       };
     } catch (error: any) {
-      // Update gagal — bersihkan gambar baru yang sudah terlanjur ditulis, jangan biarkan nyangkut.
       if (savedFilePath) await fs.unlink(savedFilePath).catch(() => {});
 
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === "P2002") {
-          throw createError({ statusCode: 409, message: "SKU produk sudah digunakan." });
-        }
-        if (error.code === "P2003") {
-          throw createError({ statusCode: 400, message: "Kategori tidak valid." });
-        }
+      const errorCode = String(error?.code || "");
+      if (errorCode === "P2002") {
+        throw createError({ statusCode: 409, message: "SKU produk sudah digunakan." });
+      }
+      if (errorCode === "P2003") {
+        throw createError({ statusCode: 400, message: "Kategori tidak valid." });
       }
 
       console.error("Gagal memperbarui produk:", error);
@@ -212,6 +226,49 @@ export default defineEventHandler(async (event) => {
   // ==========================================
   if (method === "DELETE") {
     try {
+      // 1. Cek keberadaan produk beserta jumlah riwayat pesanannya
+      const existingProduct = await db.product.findUnique({
+        where: { id: productId },
+        select: {
+          id: true,
+          image: true,
+          _count: {
+            select: {
+              orderItems: true,
+              orderRequestItems: true,
+            },
+          },
+        },
+      });
+
+      if (!existingProduct) {
+        throw createError({ statusCode: 404, message: "Produk tidak ditemukan." });
+      }
+
+      // 2. Jika sudah terikat riwayat transaksi -> Otomatis Soft Delete (isActive: false)
+      const hasTransactionHistory =
+        (existingProduct._count?.orderItems ?? 0) > 0 ||
+        (existingProduct._count?.orderRequestItems ?? 0) > 0;
+
+      if (hasTransactionHistory) {
+        const softDeletedProduct = await db.product.update({
+          where: { id: productId },
+          data: { isActive: false },
+        });
+
+        return {
+          success: true,
+          message: "Produk memiliki riwayat transaksi. Status diubah menjadi Non-Aktif.",
+          data: {
+            ...softDeletedProduct,
+            price: Number(softDeletedProduct.price),
+            discount: Number(softDeletedProduct.discount),
+            costPrice: softDeletedProduct.costPrice ? Number(softDeletedProduct.costPrice) : null,
+          },
+        };
+      }
+
+      // 3. Jika belum ada riwayat transaksi -> Hard Delete permanen
       const deletedProduct = await db.product.delete({ where: { id: productId } });
 
       if (deletedProduct.image) {
@@ -220,22 +277,37 @@ export default defineEventHandler(async (event) => {
 
       return {
         success: true,
-        message: "Produk dan gambar berhasil dihapus",
+        message: "Produk berhasil dihapus secara permanen.",
         data: deletedProduct,
       };
     } catch (error: any) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === "P2025") {
-          throw createError({ statusCode: 404, message: "Produk sudah dihapus atau tidak ditemukan." });
-        }
-        // Product.orderItems pakai onDelete: Restrict — produk yang sudah pernah
-        // terjual tidak bisa dihapus langsung dari database.
-        if (error.code === "P2003") {
-          throw createError({
-            statusCode: 400,
-            message: "Produk tidak dapat dihapus karena sudah pernah digunakan dalam transaksi. Nonaktifkan saja produk ini alih-alih menghapusnya.",
-          });
-        }
+      if (error.statusCode) throw error;
+
+      // Fallback pencegahan error Foreign Key Constraint (P2003 Prisma / 23001 Postgres)
+      const errorCode = String(error?.code || "");
+      const errorMessage = String(error?.message || "");
+
+      if (
+        errorCode === "P2003" ||
+        errorCode === "23001" ||
+        errorMessage.includes("foreign key constraint") ||
+        errorMessage.includes("RESTRICT")
+      ) {
+        const softDeletedProduct = await db.product.update({
+          where: { id: productId },
+          data: { isActive: false },
+        });
+
+        return {
+          success: true,
+          message: "Produk memiliki riwayat transaksi. Status diubah menjadi Non-Aktif.",
+          data: {
+            ...softDeletedProduct,
+            price: Number(softDeletedProduct.price),
+            discount: Number(softDeletedProduct.discount),
+            costPrice: softDeletedProduct.costPrice ? Number(softDeletedProduct.costPrice) : null,
+          },
+        };
       }
 
       console.error("Gagal menghapus produk:", error);

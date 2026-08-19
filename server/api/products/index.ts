@@ -43,6 +43,8 @@ export default defineEventHandler(async (event) => {
       if (query.status === "true") isActive = true;
       if (query.status === "false") isActive = false;
 
+      const onlyAvailable = query.available === "true";
+
       const where: Prisma.ProductWhereInput = {};
       if (search) {
         where.OR = [
@@ -52,6 +54,11 @@ export default defineEventHandler(async (event) => {
       }
       if (categoryId) where.categoryId = categoryId;
       if (isActive !== undefined) where.isActive = isActive;
+
+      if (onlyAvailable) {
+        where.stock = { gt: 0 };
+        where.isActive = true;
+      }
 
       const [products, totalItems] = await Promise.all([
         db.product.findMany({
@@ -64,9 +71,17 @@ export default defineEventHandler(async (event) => {
         db.product.count({ where }),
       ]);
 
+      // Konversi Prisma Decimal ke Number agar aman terbaca di Frontend
+      const sanitizedProducts = products.map((p) => ({
+        ...p,
+        price: Number(p.price),
+        discount: Number(p.discount || 0),
+        costPrice: p.costPrice ? Number(p.costPrice) : null,
+      }));
+
       return {
         success: true,
-        data: products,
+        data: sanitizedProducts,
         pagination: {
           currentPage: page,
           perPage: limit,
@@ -94,6 +109,7 @@ export default defineEventHandler(async (event) => {
     let sku = "";
     let priceRaw = "";
     let costPriceRaw = "";
+    let discountRaw = "";
     let stockRaw = "";
     let categoryIdRaw = "";
     let isActive = true;
@@ -107,6 +123,7 @@ export default defineEventHandler(async (event) => {
       if (fieldName === "sku") sku = value.trim();
       if (fieldName === "price") priceRaw = value.trim();
       if (fieldName === "costPrice") costPriceRaw = value.trim();
+      if (fieldName === "discount") discountRaw = value.trim();
       if (fieldName === "stock") stockRaw = value.trim();
       if (fieldName === "categoryId") categoryIdRaw = value.trim();
       if (fieldName === "isActive") isActive = value === "true";
@@ -116,7 +133,6 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // --- Validasi input teks & angka (ketat, tolak NaN/nilai tidak masuk akal) ---
     if (!name) {
       throw createError({ statusCode: 400, message: "Nama produk wajib diisi." });
     }
@@ -142,18 +158,24 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, message: "Harga modal harus berupa angka dan tidak boleh negatif." });
     }
 
+    const discount = discountRaw ? Number(discountRaw) : 0;
+    if (!Number.isFinite(discount) || discount < 0) {
+      throw createError({ statusCode: 400, message: "Diskon produk harus berupa angka dan tidak boleh negatif." });
+    }
+    if (discount > price) {
+      throw createError({ statusCode: 400, message: "Diskon tidak boleh melebihi harga jual produk." });
+    }
+
     const stock = stockRaw ? Number(stockRaw) : 0;
     if (!Number.isInteger(stock) || stock < 0) {
       throw createError({ statusCode: 400, message: "Stok harus berupa bilangan bulat dan tidak boleh negatif." });
     }
 
-    // Pastikan kategori benar-benar ada sebelum insert, supaya errornya jelas (bukan P2003 mentah).
     const categoryExists = await db.category.findUnique({ where: { id: categoryId }, select: { id: true } });
     if (!categoryExists) {
       throw createError({ statusCode: 400, message: "Kategori tidak ditemukan." });
     }
 
-    // --- Validasi & simpan gambar (kalau ada) ---
     let imagePath: string | null = null;
     let savedFilePath: string | null = null;
 
@@ -194,6 +216,7 @@ export default defineEventHandler(async (event) => {
           image: imagePath,
           price,
           costPrice: costPrice > 0 ? costPrice : null,
+          discount,
           stock,
           categoryId,
           isActive,
@@ -204,7 +227,12 @@ export default defineEventHandler(async (event) => {
       return {
         success: true,
         message: "Produk berhasil ditambahkan",
-        data: newProduct,
+        data: {
+          ...newProduct,
+          price: Number(newProduct.price),
+          discount: Number(newProduct.discount),
+          costPrice: newProduct.costPrice ? Number(newProduct.costPrice) : null,
+        },
       };
     } catch (error: any) {
       await cleanupUploadedFile();

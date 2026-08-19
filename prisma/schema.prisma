@@ -119,6 +119,7 @@ model Product {
   sku        String?     @unique
   name       String
   price      Decimal     @db.Decimal(10, 2)
+  discount    Decimal  @default(0) @db.Decimal(10, 2)
   costPrice  Decimal?    @db.Decimal(10, 2)
   stock      Int         @default(0)
   image      String?
@@ -128,6 +129,7 @@ model Product {
   orderItems OrderItem[]
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
+  orderRequestItems OrderRequestItem[] 
 
   @@index([categoryId])
 }
@@ -165,6 +167,41 @@ model OrderItem {
 
   @@index([orderId])
   @@index([productId])
+}
+
+model OrderRequest {
+  id           Int                @id @default(autoincrement())
+  sessionId    String
+  customerName String?
+  note         String?
+  status       OrderRequestStatus @default(PENDING)
+  items        OrderRequestItem[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([sessionId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderRequestItem {
+  id             Int          @id @default(autoincrement())
+  orderRequestId Int
+  orderRequest   OrderRequest @relation(fields: [orderRequestId], references: [id], onDelete: Cascade)
+  productId      Int
+  product        Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productName    String
+  price          Decimal      @db.Decimal(10, 2)
+  quantity       Int
+
+  @@index([orderRequestId])
+  @@index([productId])
+}
+
+enum OrderRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
 }
 
 model ShopSettings {

@@ -29,8 +29,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 405, statusMessage: "Method not allowed" });
   }
 
-  // requireUser: verifikasi JWT + cek isActive + cross-check ke DB dalam satu jalur.
-  // Kasir maupun Pemilik boleh membuat order.
   const authUser = await requireUser(event);
   const cashierId = String(authUser.id);
 
@@ -55,7 +53,6 @@ export default defineEventHandler(async (event) => {
   const formattedCustomerName = customerName ? String(customerName).trim().slice(0, MAX_CUSTOMER_NAME_LEN) : null;
   const formattedNote = note ? String(note).trim().slice(0, MAX_NOTE_LEN) : null;
 
-  // Sanitasi & validasi baris item lebih awal (sebelum masuk transaksi DB).
   const cleanItems: { productId: number; quantity: number }[] = [];
   for (const item of items) {
     const quantity = Number(item?.quantity ?? item?.qty);
@@ -72,11 +69,12 @@ export default defineEventHandler(async (event) => {
 
   try {
     const result = await db.$transaction(async (tx) => {
-      // Ambil harga & nama produk sekali di awal (bukan per-item berulang).
       const productIds = [...new Set(cleanItems.map((i) => i.productId))];
+      
+      // 👉 Tambahkan 'discount' ke dalam select database
       const products = await tx.product.findMany({
         where: { id: { in: productIds } },
-        select: { id: true, name: true, price: true, isActive: true },
+        select: { id: true, name: true, price: true, discount: true, isActive: true },
       });
       const productMap = new Map(products.map((p) => [p.id, p]));
 
@@ -92,7 +90,6 @@ export default defineEventHandler(async (event) => {
           throw createError({ statusCode: 400, statusMessage: `Produk "${product.name}" sudah tidak aktif dijual.` });
         }
 
-        // Pemotongan stok atomic — aman dari race condition antar transaksi bersamaan.
         const updated = await tx.product.updateMany({
           where: { id: productId, stock: { gte: quantity } },
           data: { stock: { decrement: quantity } },
@@ -106,18 +103,25 @@ export default defineEventHandler(async (event) => {
           });
         }
 
-        // Harga diambil dari DB (snapshot saat transaksi), BUKAN dari input client.
-        orderItemsData.push({ productId, quantity, price: product.price });
-        subtotal += Number(product.price) * quantity;
+        // 👉 Hitung harga efektif per item (Harga Jual dikurangi Diskon Produk)
+        const basePrice = Number(product.price);
+        const productDiscount = Number(product.discount || 0);
+        const effectivePrice = Math.max(0, basePrice - productDiscount); // Mencegah harga minus
+
+        // Simpan harga efektif ke orderItem
+        orderItemsData.push({ 
+          productId, 
+          quantity, 
+          price: new Prisma.Decimal(effectivePrice) 
+        });
+
+        subtotal += effectivePrice * quantity;
       }
 
       subtotal = round2(subtotal);
 
-      // Diskon tidak boleh melebihi subtotal — cegah totalAmount jadi negatif.
+      // Diskon order/keranjang (Order.discount)
       const discountAmount = round2(Math.min(rawDiscount, subtotal));
-
-      // totalAmount DIHITUNG SERVER, bukan dipercaya dari client — mencegah manipulasi
-      // pencatatan pendapatan (kasir/klien mengirim total lebih kecil dari harga sebenarnya).
       const totalAmount = round2(subtotal - discountAmount);
 
       const createdOrder = await tx.order.create({

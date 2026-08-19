@@ -6,8 +6,8 @@
       <div v-if="showAlert"
         class="fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border mono text-xs"
         :class="alertType === 'success'
-            ? 'bg-[#2b1b12] text-[#faf6ee] border-[#b8763c]'
-            : 'bg-[#9b3a2e] text-[#faf6ee] border-[#7a2e24]'
+          ? 'bg-[#2b1b12] text-[#faf6ee] border-[#b8763c]'
+          : 'bg-[#9b3a2e] text-[#faf6ee] border-[#7a2e24]'
           ">
         <span class="text-base">{{
           alertType === "success" ? "✅" : "⚠️"
@@ -302,6 +302,17 @@
                           d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
                     </button>
+
+                    <button type="button"
+                      class="p-1.5 rounded text-[#2b1b12] hover:text-[#b8763c] hover:bg-[#2b1b12]/5 transition"
+                      title="Edit Transaksi" @click="openEditModal(trx)">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </button>
+
                     <button v-if="isOwner" type="button"
                       class="p-1.5 rounded text-[#9b3a2e] hover:bg-[#9b3a2e]/10 transition" title="Hapus Transaksi"
                       @click="confirmDelete(trx)">
@@ -349,6 +360,16 @@
                       d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                   </svg>
                 </button>
+
+                <button type="button" class="p-1 rounded text-[#2b1b12] hover:text-[#b8763c] transition-colors"
+                  title="Edit Transaksi" @click="openEditModal(trx)">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="1.8">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+
                 <button v-if="isOwner" type="button"
                   class="p-1 rounded text-[#9b3a2e] hover:bg-[#9b3a2e]/10 transition-colors" title="Hapus Transaksi"
                   @click="confirmDelete(trx)">
@@ -375,7 +396,7 @@
           </div>
         </div>
 
-        <!-- PAGINATION (Menempel di bagian bawah tabel dalam satu card yang sama) -->
+        <!-- PAGINATION -->
         <div
           class="p-4 border-t border-[#2b1b12]/10 flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#f4eee3]/30">
           <p class="mono label-xs text-[#8A7A68]">
@@ -441,6 +462,83 @@
               {{ isDeleting ? "MENGHAPUS..." : "HAPUS" }}
             </button>
           </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- MODAL EDIT TRANSAKSI -->
+    <Teleport to="body">
+      <div v-if="trxToEdit"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+        @click.self="closeEditModal">
+        <div class="ticket-card w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+          <div>
+            <h3 class="display font-bold text-lg text-[#2b1b12]">
+              Edit Transaksi #{{ formatInvoiceNo(trxToEdit.invoiceNo || trxToEdit.id) }}
+            </h3>
+            <p class="mono text-xs text-[#8A7A68] mt-1">
+              {{ isOwner ? "Anda dapat mengubah semua field, termasuk diskon." : "Anda hanya dapat mengubah status, nama pelanggan, catatan, dan metode pembayaran." }}
+            </p>
+          </div>
+
+          <form @submit.prevent="submitEditTransaction" class="space-y-3.5">
+            <div class="space-y-1.5">
+              <label class="mono label-xs text-[#8A7A68] block">STATUS</label>
+              <select v-model="editForm.status"
+                class="field mono text-xs w-full p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 focus:outline-none focus:border-[#b8763c]">
+                <option value="PENDING">Menunggu</option>
+                <option value="PAID">Lunas</option>
+                <option value="CANCELLED">Dibatalkan</option>
+                <option value="REFUNDED">Refund</option>
+              </select>
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="mono label-xs text-[#8A7A68] block">METODE PEMBAYARAN</label>
+              <select v-model="editForm.paymentMethod"
+                class="field mono text-xs w-full p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 focus:outline-none focus:border-[#b8763c]">
+                <option v-for="(label, key) in paymentMethodLabels" :key="key" :value="key">
+                  {{ label }}
+                </option>
+              </select>
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="mono label-xs text-[#8A7A68] block">NAMA PELANGGAN</label>
+              <input v-model="editForm.customerName" type="text" maxlength="100"
+                placeholder="Pelanggan Umum"
+                class="field mono text-xs w-full p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 focus:outline-none focus:border-[#b8763c]" />
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="mono label-xs text-[#8A7A68] block">CATATAN</label>
+              <textarea v-model="editForm.note" rows="2" maxlength="300"
+                class="field mono text-xs w-full p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 focus:outline-none focus:border-[#b8763c]"></textarea>
+            </div>
+
+            <!-- Diskon HANYA muncul & bisa diedit untuk PEMILIK -->
+            <div v-if="isOwner" class="space-y-1.5 pt-2 border-t border-dashed border-[#2b1b12]/15">
+              <label class="mono label-xs text-[#8A7A68] block">DISKON (Rp)</label>
+              <input v-model.number="editForm.discount" type="number" min="0" step="500"
+                class="field mono text-xs w-full p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 focus:outline-none focus:border-[#b8763c]" />
+              <p class="mono text-[0.65rem] text-[#8A7A68]">Total akhir akan otomatis dihitung ulang dari subtotal item dikurangi diskon ini.</p>
+            </div>
+
+            <p v-if="editError" class="mono text-xs text-[#9b3a2e]">{{ editError }}</p>
+
+            <div class="flex items-center gap-2 pt-2">
+              <button type="button"
+                class="flex-1 py-2 rounded mono text-xs border border-[#2b1b12]/20 text-[#2b1b12] hover:bg-[#2b1b12]/5 transition"
+                :disabled="isSavingEdit" @click="closeEditModal">
+                Batal
+              </button>
+              <button type="submit"
+                class="flex-1 py-2 rounded mono text-xs bg-[#2b1b12] text-[#faf6ee] font-bold hover:bg-[#b8763c] transition disabled:opacity-50"
+                :disabled="isSavingEdit">
+                {{ isSavingEdit ? "MENYIMPAN..." : "SIMPAN PERUBAHAN" }}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </Teleport>
@@ -916,6 +1014,70 @@ async function deleteTransaction() {
     );
   } finally {
     isDeleting.value = false;
+  }
+}
+
+// ================== EDIT TRANSAKSI ==================
+const trxToEdit = ref(null);
+const isSavingEdit = ref(false);
+const editError = ref("");
+
+const editForm = reactive({
+  status: "PENDING",
+  paymentMethod: "CASH",
+  customerName: "",
+  note: "",
+  discount: 0,
+});
+
+function openEditModal(trx) {
+  editError.value = "";
+  editForm.status = trx.status || "PENDING";
+  editForm.paymentMethod = trx.paymentMethod || "CASH";
+  editForm.customerName = trx.customerName || "";
+  editForm.note = trx.note || "";
+  editForm.discount = Number(trx.discount || 0);
+  trxToEdit.value = trx;
+}
+
+function closeEditModal() {
+  if (isSavingEdit.value) return;
+  trxToEdit.value = null;
+  editError.value = "";
+}
+
+async function submitEditTransaction() {
+  if (!trxToEdit.value || isSavingEdit.value) return;
+  isSavingEdit.value = true;
+  editError.value = "";
+
+  const payload = {
+    status: editForm.status,
+    paymentMethod: editForm.paymentMethod,
+    customerName: editForm.customerName,
+    note: editForm.note,
+  };
+
+  // Field discount hanya dikirim kalau memang PEMILIK,
+  // supaya KASIR tidak pernah mengirim field ini sama sekali.
+  if (isOwner.value) {
+    payload.discount = editForm.discount;
+  }
+
+  try {
+    await $fetch(`/api/transactions/${trxToEdit.value.id}`, {
+      method: "PATCH",
+      headers: token.value ? { Authorization: `Bearer ${token.value}` } : {},
+      body: payload,
+    });
+
+    triggerAlert("Transaksi berhasil diperbarui", "success");
+    trxToEdit.value = null;
+    await refreshTransactions();
+  } catch (error) {
+    editError.value = error?.data?.statusMessage || "Gagal memperbarui transaksi.";
+  } finally {
+    isSavingEdit.value = false;
   }
 }
 

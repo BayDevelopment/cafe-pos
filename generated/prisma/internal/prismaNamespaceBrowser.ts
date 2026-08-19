@@ -59,6 +59,8 @@ export const ModelName = {
   Product: 'Product',
   Order: 'Order',
   OrderItem: 'OrderItem',
+  OrderRequest: 'OrderRequest',
+  OrderRequestItem: 'OrderRequestItem',
   ShopSettings: 'ShopSettings'
 } as const
 
@@ -149,6 +151,7 @@ export const ProductScalarFieldEnum = {
   sku: 'sku',
   name: 'name',
   price: 'price',
+  discount: 'discount',
   costPrice: 'costPrice',
   stock: 'stock',
   image: 'image',
@@ -186,6 +189,31 @@ export const OrderItemScalarFieldEnum = {
 } as const
 
 export type OrderItemScalarFieldEnum = (typeof OrderItemScalarFieldEnum)[keyof typeof OrderItemScalarFieldEnum]
+
+
+export const OrderRequestScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  customerName: 'customerName',
+  note: 'note',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type OrderRequestScalarFieldEnum = (typeof OrderRequestScalarFieldEnum)[keyof typeof OrderRequestScalarFieldEnum]
+
+
+export const OrderRequestItemScalarFieldEnum = {
+  id: 'id',
+  orderRequestId: 'orderRequestId',
+  productId: 'productId',
+  productName: 'productName',
+  price: 'price',
+  quantity: 'quantity'
+} as const
+
+export type OrderRequestItemScalarFieldEnum = (typeof OrderRequestItemScalarFieldEnum)[keyof typeof OrderRequestItemScalarFieldEnum]
 
 
 export const ShopSettingsScalarFieldEnum = {

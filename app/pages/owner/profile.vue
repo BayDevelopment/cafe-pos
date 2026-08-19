@@ -285,11 +285,58 @@ function triggerAlert(msg: string, type: 'success' | 'error' = 'success') {
     }, 3000)
 }
 
+// --- 👉 REALTIME via SSE (jalan untuk KASIR maupun PEMILIK) ---
+let eventSource: EventSource | null = null
+
+const connectStatusStream = () => {
+    if (eventSource) return
+
+    eventSource = new EventSource('/api/auth/status-stream')
+
+    eventSource.addEventListener('force-logout', async (e: MessageEvent) => {
+        const data = JSON.parse(e.data)
+        triggerAlert(data.reason || 'Sesi Anda diakhiri.', 'error')
+
+        eventSource?.close()
+        eventSource = null
+
+        try {
+            await logout()
+        } finally {
+            setTimeout(() => {
+                navigateTo('/kasir/login', { replace: true })
+            }, 1500)
+        }
+    })
+
+    eventSource.addEventListener('profile-updated', (e: MessageEvent) => {
+        const data = JSON.parse(e.data)
+
+        updateUser({
+            emailVerifiedAt: data.emailVerifiedAt,
+            isActive: data.isActive,
+        })
+
+        if (data.emailVerifiedAt) {
+            triggerAlert('Email Anda baru saja terverifikasi.', 'success')
+        }
+    })
+
+    eventSource.onerror = () => {
+        console.warn('[SSE] Koneksi status stream terputus, mencoba reconnect otomatis...')
+    }
+}
+
+const disconnectStatusStream = () => {
+    eventSource?.close()
+    eventSource = null
+}
+
 // --- Verifikasi Email ---
 const sendingVerification = ref(false)
 const verificationSent = ref(false)
 const verificationError = ref('')
-const resendCooldown = ref(0) // detik tersisa sebelum bisa kirim ulang
+const resendCooldown = ref(0)
 let cooldownInterval: ReturnType<typeof setInterval> | null = null
 
 const verifyButtonLabel = computed(() => {
@@ -325,7 +372,7 @@ async function handleSendVerification() {
 
         if (res?.success) {
             verificationSent.value = true
-            startCooldown(60) // gak bisa kirim ulang selama 60 detik
+            startCooldown(60)
             triggerAlert('Email verifikasi berhasil dikirim', 'success')
         }
     } catch (err: any) {
@@ -335,10 +382,6 @@ async function handleSendVerification() {
     }
 }
 
-onBeforeUnmount(() => {
-    if (cooldownInterval) clearInterval(cooldownInterval)
-})
-
 const form = reactive({
     name: '',
     email: '',
@@ -347,12 +390,11 @@ const form = reactive({
     confirmPassword: ''
 })
 
-// 👉 PERUBAHAN DI SINI: Email di-disable pokoknya jika sudah terverifikasi (tanpa peduli role)
+// Email di-disable pokoknya jika sudah terverifikasi (tanpa peduli role)
 const isEmailDisabled = computed(() => {
     return !!user.value?.emailVerifiedAt
 })
 
-// Encode nama agar query string avatar tidak rusak jika ada spasi/simbol
 const avatarUrl = computed(() => {
     const seed = encodeURIComponent(user.value?.name || 'user')
     return `https://api.dicebear.com/8.x/notionists-neutral/svg?seed=${seed}&backgroundColor=c9793f`
@@ -381,6 +423,14 @@ onMounted(async () => {
         form.email = user.value.email || ''
         pending.value = false
     }
+
+    // 👉 Mulai realtime sync setelah data awal siap
+    connectStatusStream()
+})
+
+onBeforeUnmount(() => {
+    if (cooldownInterval) clearInterval(cooldownInterval)
+    disconnectStatusStream() // 👉 tutup koneksi SSE saat pindah halaman
 })
 
 const resetPasswordFields = () => {
@@ -391,6 +441,12 @@ const resetPasswordFields = () => {
 
 const updateProfile = async () => {
     if (loadingUpdate.value) return
+
+    if (isEmailDisabled.value && form.email !== user.value?.email) {
+        triggerAlert('Email tidak dapat diubah karena sudah terverifikasi.', 'error')
+        return
+    }
+
     loadingUpdate.value = true
 
     const wantsPasswordChange = !!form.newPassword || !!form.oldPassword || !!form.confirmPassword
@@ -432,7 +488,6 @@ const updateProfile = async () => {
         if (res?.success) {
             triggerAlert('Profil dan keamanan berhasil diperbarui!', 'success')
 
-            // 👉 UPDATE STATE GLOBAL SECARA INSTAN AGAR NAVBAR LANGSUNG BERUBAH
             updateUser({ name: form.name, email: form.email })
 
             resetPasswordFields()

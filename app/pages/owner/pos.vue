@@ -102,83 +102,103 @@
           </div>
 
           <!-- KATALOG PRODUK -->
-          <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div
-              v-for="product in paginatedProducts"
-              :key="product.id"
-              :class="[
-                'ticket-card p-4 flex flex-col justify-between transition group select-none bg-[#faf6ee]',
-                product.stock > 0
-                  ? 'hover:border-[#c9793f] cursor-pointer'
-                  : 'opacity-60 bg-red-50/50 border-red-200 cursor-not-allowed'
-              ]"
-              @click="product.stock > 0 && addToCart(product)"
-            >
-              <div>
-                <!-- Gambar Produk -->
-                <div class="w-full h-32 rounded overflow-hidden bg-white border border-[#1c1410]/10 mb-3 flex items-center justify-center relative">
-                  <img
-                    v-if="product.image"
-                    :src="product.image"
-                    :alt="product.name"
-                    class="w-full h-full object-cover"
-                    :class="{ 'grayscale': product.stock <= 0 }"
-                    loading="lazy"
-                    @error="$event.target.style.display = 'none'"
-                  />
-                  <span v-else class="display text-2xl font-bold text-[#c9793f]/40">
-                    {{ product.name?.charAt(0).toUpperCase() }}
-                  </span>
+        <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div
+            v-for="product in paginatedProducts"
+            :key="product.id"
+            :class="[
+              'ticket-card p-4 flex flex-col justify-between transition group select-none bg-[#faf6ee]',
+              product.stock > 0
+                ? 'hover:border-[#c9793f] cursor-pointer'
+                : 'opacity-60 bg-red-50/50 border-red-200 cursor-not-allowed'
+            ]"
+            @click="product.stock > 0 && addToCart(product)"
+          >
+            <div>
+              <!-- Gambar Produk & Badge Diskon Persen -->
+              <div class="w-full h-32 rounded overflow-hidden bg-white border border-[#1c1410]/10 mb-3 flex items-center justify-center relative">
+                <img
+                  v-if="product.image"
+                  :src="product.image"
+                  :alt="product.name"
+                  class="w-full h-full object-cover"
+                  :class="{ 'grayscale': product.stock <= 0 }"
+                  loading="lazy"
+                  @error="$event.target.style.display = 'none'"
+                />
+                <span v-else class="display text-2xl font-bold text-[#c9793f]/40">
+                  {{ product.name?.charAt(0).toUpperCase() }}
+                </span>
 
-                  <!-- Overlay Badge saat Stok Habis -->
-                  <span
-                    v-if="product.stock <= 0"
-                    class="absolute inset-0 bg-red-900/40 backdrop-blur-[1px] flex items-center justify-center font-bold text-white tracking-widest text-xs uppercase"
-                  >
-                    STOK HABIS
-                  </span>
+                <!-- Badge Persentase Diskon di Card -->
+                <span
+                  v-if="product.discount > 0 && product.stock > 0"
+                  class="absolute top-2 left-2 bg-[#9b3a2e] text-white mono text-[10px] font-bold px-2 py-0.5 rounded shadow"
+                >
+                  {{ Math.round((product.discount / product.price) * 100) }}% OFF
+                </span>
+
+                <!-- Overlay Badge saat Stok Habis -->
+                <span
+                  v-if="product.stock <= 0"
+                  class="absolute inset-0 bg-red-900/40 backdrop-blur-[1px] flex items-center justify-center font-bold text-white tracking-widest text-xs uppercase"
+                >
+                  STOK HABIS
+                </span>
+              </div>
+
+              <div class="flex justify-between items-start gap-2 mb-2">
+                <div>
+                  <h3 :class="['display text-base font-bold transition', product.stock > 0 ? 'text-[#1c1410] group-hover:text-[#c9793f]' : 'text-gray-400 line-through']">
+                    {{ product.name }}
+                  </h3>
+                  <span class="mono text-[0.65rem] text-[#1c1410]/60">{{ product.category?.name }}</span>
                 </div>
 
-                <div class="flex justify-between items-start gap-2 mb-2">
-                  <div>
-                    <h3 :class="['display text-base font-bold transition', product.stock > 0 ? 'text-[#1c1410] group-hover:text-[#c9793f]' : 'text-gray-400 line-through']">
-                      {{ product.name }}
-                    </h3>
-                    <span class="mono text-[0.65rem] text-[#1c1410]/60">{{ product.category?.name }}</span>
+                <!-- Badge Stok -->
+                <span :class="[
+                  'mono label-xs px-2 py-0.5 rounded whitespace-nowrap font-semibold',
+                  product.stock <= 0
+                    ? 'bg-[#9b3a2e] text-white border border-[#9b3a2e]'
+                    : (product.stock > 5 ? 'bg-emerald-500/10 text-emerald-700' : 'bg-[#c9793f]/10 text-[#c9793f]')
+                ]">
+                  {{ product.stock <= 0 ? 'HABIS' : 'Stok: ' + product.stock }}
+                </span>
+              </div>
+
+              <!-- Harga Coret & Harga Diskon -->
+              <div class="mt-2">
+                <div v-if="product.discount > 0">
+                  <div class="flex items-center gap-2">
+                    <span class="line-through text-xs text-[#1c1410]/50">{{ formatCurrency(product.price) }}</span>
+                    <span class="mono text-[10px] text-[#9b3a2e] font-semibold bg-red-100 px-1.5 py-0.5 rounded">Hemat {{ formatCurrency(product.discount) }}</span>
                   </div>
-
-                  <!-- Badge Stok -->
-                  <span :class="[
-                    'mono label-xs px-2 py-0.5 rounded whitespace-nowrap font-semibold',
-                    product.stock <= 0
-                      ? 'bg-[#9b3a2e] text-white border border-[#9b3a2e]'
-                      : (product.stock > 5 ? 'bg-emerald-500/10 text-emerald-700' : 'bg-[#c9793f]/10 text-[#c9793f]')
-                  ]">
-                    {{ product.stock <= 0 ? 'HABIS' : 'Stok: ' + product.stock }}
-                  </span>
+                  <p class="display text-lg font-bold text-[#9b3a2e] mt-0.5">
+                    {{ formatCurrency(product.price - product.discount) }}
+                  </p>
                 </div>
-
-                <p class="display text-lg font-bold text-[#c9793f] mt-2">
+                <p v-else class="display text-lg font-bold text-[#c9793f] mt-2">
                   {{ formatCurrency(product.price) }}
                 </p>
               </div>
+            </div>
 
-              <!-- Tampilan Tombol Tambah vs Status Habis -->
-              <div class="mt-4 pt-3 border-t border-[#1c1410]/10 flex items-center justify-between">
-                <span :class="['mono text-[0.65rem]', product.stock > 0 ? 'text-[#1c1410]/60' : 'text-[#9b3a2e] font-bold']">
-                  {{ product.stock > 0 ? 'KLIK UNTUK TAMBAH' : 'TIDAK DAPAT DIPESAN' }}
-                </span>
-                <span :class="[
-                  'w-7 h-7 rounded flex items-center justify-center font-bold text-sm transition',
-                  product.stock > 0
-                    ? 'bg-[#1c1410] text-[#faf6ee] group-hover:bg-[#c9793f]'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                ]">
-                  {{ product.stock > 0 ? '+' : '×' }}
-                </span>
-              </div>
+            <!-- Tombol Tambah -->
+            <div class="mt-4 pt-3 border-t border-[#1c1410]/10 flex items-center justify-between">
+              <span :class="['mono text-[0.65rem]', product.stock > 0 ? 'text-[#1c1410]/60' : 'text-[#9b3a2e] font-bold']">
+                {{ product.stock > 0 ? 'KLIK UNTUK TAMBAH' : 'TIDAK DAPAT DIPESAN' }}
+              </span>
+              <span :class="[
+                'w-7 h-7 rounded flex items-center justify-center font-bold text-sm transition',
+                product.stock > 0
+                  ? 'bg-[#1c1410] text-[#faf6ee] group-hover:bg-[#c9793f]'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              ]">
+                {{ product.stock > 0 ? '+' : '×' }}
+              </span>
             </div>
           </div>
+        </div>
 
           <div v-if="!pending && products.length === 0" class="ticket-card p-8 text-center mono text-xs text-[#1c1410]/60 bg-[#faf6ee]">
             Belum ada produk tersedia di database.
@@ -266,10 +286,13 @@
               >
                 <div class="flex-1 pr-2">
                   <p class="text-[#1c1410] font-bold truncate">{{ item.name }}</p>
-                  <p class="text-[0.7rem] text-[#1c1410]/60">{{ formatCurrency(item.price) }} x {{ item.quantity }}</p>
+                  <p class="text-[0.7rem] text-[#1c1410]/60">
+                    <span v-if="item.discount > 0" class="line-through mr-1">{{ formatCurrency(item.price) }}</span>
+                    <span>{{ formatCurrency(item.price - item.discount) }} x {{ item.quantity }}</span>
+                  </p>
                 </div>
                 <div class="text-right">
-                  <p class="font-bold text-[#1c1410]">{{ formatCurrency(item.price * item.quantity) }}</p>
+                  <p class="font-bold text-[#1c1410]">{{ formatCurrency((item.price - item.discount) * item.quantity) }}</p>
                   <div class="flex items-center gap-1 justify-end mt-1">
                     <button
                       type="button"
@@ -305,22 +328,22 @@
             <!-- RINCIAN TRANSAKSI -->
             <div class="border-t border-dashed border-[#1c1410]/20 pt-4 space-y-3">
               <div class="flex justify-between items-center">
-                <span class="mono text-xs text-[#1c1410]/60">Subtotal</span>
-                <span class="mono text-xs text-[#1c1410] font-bold">{{ formatCurrency(cartTotal) }}</span>
+                <span class="mono text-xs text-[#1c1410]/60">Subtotal Kotor</span>
+                <span class="mono text-xs text-[#1c1410] font-bold">{{ formatCurrency(cartGrossTotal) }}</span>
               </div>
 
-              <!-- DISKON -->
+              <!-- DISKON OTOMATIS DARI PRODUK -->
               <div>
-                <label for="order-discount-owner" class="mono label-xs block text-[#1c1410]/60 mb-1">Diskon Khusus (Rp)</label>
+                <div class="flex justify-between items-center mb-1">
+                  <label for="order-discount-owner" class="mono label-xs text-[#1c1410]/60">Total Diskon Produk</label>
+                  <span class="mono text-[0.6rem] text-[#c9793f] font-semibold">Otomatis dari Katalog</span>
+                </div>
                 <input
                   id="order-discount-owner"
-                  v-model.number="discount"
+                  :value="discount"
                   type="number"
-                  min="0"
-                  :max="cartTotal"
-                  placeholder="0"
-                  :disabled="isProcessing"
-                  class="field mono text-xs p-2 bg-white rounded border border-[#1c1410]/20 w-full focus:outline-none focus:border-[#c9793f] disabled:opacity-50"
+                  disabled
+                  class="field mono text-xs p-2 bg-gray-100 rounded border border-[#1c1410]/20 w-full text-gray-600 cursor-not-allowed font-bold"
                 />
               </div>
 
@@ -406,7 +429,6 @@ const cart = ref<any[]>([])
 const customerName = ref('')
 const paymentMethod = ref('CASH')
 const orderNote = ref('')
-const discount = ref(0)
 const isProcessing = ref(false)
 const checkoutError = ref('')
 
@@ -464,16 +486,19 @@ function formatCurrency(value: number) {
 }
 
 const totalCartItems = computed(() => cart.value.reduce((sum, item) => sum + item.quantity, 0))
-const cartTotal = computed(() => cart.value.reduce((sum, item) => sum + (Number(item.price) * item.quantity), 0))
 
-const normalizedDiscount = computed(() => {
-  const d = Number(discount.value) || 0
-  if (d < 0) return 0
-  if (d > cartTotal.value) return cartTotal.value
-  return d
+// Subtotal kotor sebelum diskon produk
+const cartGrossTotal = computed(() => cart.value.reduce((sum, item) => sum + (Number(item.price) * item.quantity), 0))
+
+// Total diskon otomatis dihitung dari item produk yang masuk keranjang
+const discount = computed(() => {
+  return cart.value.reduce((sum, item) => {
+    const itemDiscount = Number(item.discount || 0)
+    return sum + (itemDiscount * item.quantity)
+  }, 0)
 })
 
-const grandTotal = computed(() => cartTotal.value - normalizedDiscount.value)
+const grandTotal = computed(() => cartGrossTotal.value - discount.value)
 
 // --- Alert / Toast State ---
 const alertMessage = ref('')
@@ -505,7 +530,8 @@ function addToCart(product: any) {
     cart.value.push({
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: Number(product.price),
+      discount: Number(product.discount || 0),
       quantity: 1,
       stock: product.stock
     })
@@ -589,13 +615,11 @@ async function checkout() {
       body: {
         items: cart.value.map(item => ({
           productId: item.id,
-          quantity: item.quantity,
-          price: item.price
+          quantity: item.quantity
         })),
         customerName: customerName.value || null,
         paymentMethod: paymentMethod.value,
-        totalAmount: grandTotal.value,
-        discount: normalizedDiscount.value,
+        discount: discount.value,
         note: orderNote.value || null
       }
     })
@@ -608,7 +632,6 @@ async function checkout() {
       cart.value = []
       customerName.value = ''
       orderNote.value = ''
-      discount.value = 0
       await refreshProducts()
     } else {
       checkoutError.value = 'Transaksi gagal diproses. Silakan coba lagi.'
