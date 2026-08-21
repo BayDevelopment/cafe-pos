@@ -46,6 +46,44 @@
           <span v-if="tab.value === 'PENDING' && pendingCount > 0" class="tab-count">{{ pendingCount }}</span>
         </button>
       </div>
+
+      <!-- FILTER TANGGAL -->
+      <div class="pt-4 border-t border-dashed border-[#2b1b12]/15 space-y-3">
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <span class="mono label-xs text-[#8A7A68]">FILTER TANGGAL</span>
+          <button v-if="dateFilter !== 'ALL'" type="button" class="mono label-xs text-[#9b3a2e] underline"
+            @click="resetDateFilter">
+            Reset filter
+          </button>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button v-for="opt in dateOptions" :key="opt.value" type="button" class="chip-btn mono label-xs"
+            :class="{ 'chip-btn--active': dateFilter === opt.value }" @click="selectDateOption(opt.value)">
+            {{ opt.label }}
+          </button>
+        </div>
+
+        <!-- RANGE KUSTOM -->
+        <div v-if="dateFilter === 'CUSTOM'" class="flex items-center gap-2 flex-wrap pt-1">
+          <div class="flex items-center gap-1.5">
+            <label class="mono label-xs text-[#8A7A68]">DARI</label>
+            <input type="date" v-model="customFrom" :max="customTo || todayStr"
+              class="field mono text-xs px-2 py-1.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 focus:outline-none focus:border-[#b8763c]" />
+          </div>
+          <div class="flex items-center gap-1.5">
+            <label class="mono label-xs text-[#8A7A68]">SAMPAI</label>
+            <input type="date" v-model="customTo" :min="customFrom" :max="todayStr"
+              class="field mono text-xs px-2 py-1.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 focus:outline-none focus:border-[#b8763c]" />
+          </div>
+          <p v-if="customRangeError" class="mono text-[0.65rem] text-[#9b3a2e] w-full">
+            {{ customRangeError }}
+          </p>
+        </div>
+
+        <p v-if="activeDateRangeLabel" class="mono text-[0.65rem] text-[#8A7A68]">
+          Menampilkan pesanan: {{ activeDateRangeLabel }}
+        </p>
+      </div>
     </header>
 
     <!-- BANNER PESANAN BARU -->
@@ -87,10 +125,10 @@
       <!-- EMPTY STATE -->
       <div v-else-if="!hasData" class="ticket-card p-10 text-center space-y-1">
         <p class="mono text-xs text-[#2b1b12] font-semibold">
-          {{ activeTab === "PENDING" ? "Tidak ada pesanan yang menunggu." : "Belum ada riwayat di tab ini." }}
+          {{ emptyStateTitle }}
         </p>
         <p class="mono text-xs text-[#8A7A68]">
-          Pesanan baru dari pelanggan akan muncul otomatis di sini.
+          {{ dateFilter === "ALL" ? "Pesanan baru dari pelanggan akan muncul otomatis di sini." : "Coba ubah rentang tanggal atau reset filter." }}
         </p>
       </div>
 
@@ -111,10 +149,27 @@
             <span class="badge" :class="getStatusClass(req.status)">{{ getStatusLabel(req.status) }}</span>
           </div>
 
-          <div class="space-y-1.5 pt-2 border-t border-dashed border-[#2b1b12]/15 max-h-36 overflow-y-auto pr-1">
+          <!-- RINCIAN ITEM MASING-MASING (DENGAN DISKON) -->
+          <div class="space-y-2 pt-2 border-t border-dashed border-[#2b1b12]/15 max-h-40 overflow-y-auto pr-1">
             <div v-for="item in req.items" :key="item.id" class="flex justify-between items-start text-xs mono">
-              <span class="text-[#2b1b12]">{{ item.quantity }}x {{ item.productName }}</span>
-              <span class="text-[#8A7A68] num">{{ formatRupiah(item.price * item.quantity) }}</span>
+              <div class="space-y-0.5">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-[#2b1b12] font-medium">{{ item.quantity }}x {{ item.productName }}</span>
+                  <!-- BADGE DISKON PERSENTASE -->
+                  <span v-if="item.discountPercent > 0" class="badge-discount">
+                    -{{ item.discountPercent }}%
+                  </span>
+                </div>
+              </div>
+              <div class="text-right shrink-0">
+                <!-- HARGA ASLI SEBELUM DISKON (JIKA ADA) -->
+                <span v-if="item.originalPrice && item.originalPrice > item.price" class="text-[0.65rem] text-[#8A7A68] line-through block leading-none">
+                  {{ formatRupiah(item.originalPrice * item.quantity) }}
+                </span>
+                <span class="text-[#2b1b12] font-medium num">
+                  {{ formatRupiah(item.subtotal || (item.price * item.quantity)) }}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -122,9 +177,16 @@
             Catatan: {{ req.note }}
           </p>
 
-          <div class="flex items-center justify-between pt-2 border-t border-dashed border-[#2b1b12]/15">
-            <span class="mono label-xs text-[#8A7A68]">Estimasi Total</span>
-            <span class="display font-bold text-[#2b1b12] num">{{ formatRupiah(req.estimatedTotal) }}</span>
+          <!-- TOTAL & TOTAL DISKON -->
+          <div class="space-y-1 pt-2 border-t border-dashed border-[#2b1b12]/15">
+            <div v-if="req.totalDiscount > 0" class="flex items-center justify-between text-xs mono text-[#9b3a2e]">
+              <span class="label-xs">Hemat Diskon</span>
+              <span class="num font-semibold">-{{ formatRupiah(req.totalDiscount) }}</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="mono label-xs text-[#8A7A68]">Estimasi Total</span>
+              <span class="display font-bold text-[#2b1b12] num">{{ formatRupiah(req.estimatedTotal) }}</span>
+            </div>
           </div>
 
           <div v-if="req.status === 'PENDING'" class="flex items-center gap-2 pt-1">
@@ -194,6 +256,7 @@ useHead({ title: "Pesanan Masuk - POS Kasir" });
 const token = useCookie("auth_token");
 const { user } = useAuth();
 
+// Mengecek role dinamis
 const isOwner = computed(() => user.value?.role?.toUpperCase() === "PEMILIK");
 
 const tabs = [
@@ -212,11 +275,99 @@ function switchTab(value) {
   page.value = 1;
 }
 
-const queryParams = computed(() => ({
-  status: activeTab.value,
-  page: page.value,
-  limit,
-}));
+// --- Filter tanggal ---
+const dateOptions = [
+  { label: "Semua", value: "ALL" },
+  { label: "Hari Ini", value: "TODAY" },
+  { label: "7 Hari Terakhir", value: "7D" },
+  { label: "30 Hari Terakhir", value: "30D" },
+  { label: "Kustom", value: "CUSTOM" },
+];
+
+const dateFilter = ref("ALL");
+const customFrom = ref("");
+const customTo = ref("");
+const customRangeError = ref("");
+
+function todayISO() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+const todayStr = todayISO().toISOString().slice(0, 10);
+
+function selectDateOption(value) {
+  dateFilter.value = value;
+  customRangeError.value = "";
+  if (value !== "CUSTOM") {
+    page.value = 1;
+  }
+}
+
+function resetDateFilter() {
+  dateFilter.value = "ALL";
+  customFrom.value = "";
+  customTo.value = "";
+  customRangeError.value = "";
+  page.value = 1;
+}
+
+const activeDateRange = computed(() => {
+  const fmt = (d) => d.toISOString().slice(0, 10);
+  const today = todayISO();
+
+  if (dateFilter.value === "TODAY") {
+    return { from: fmt(today), to: fmt(today) };
+  }
+  if (dateFilter.value === "7D") {
+    const from = new Date(today);
+    from.setDate(from.getDate() - 6);
+    return { from: fmt(from), to: fmt(today) };
+  }
+  if (dateFilter.value === "30D") {
+    const from = new Date(today);
+    from.setDate(from.getDate() - 29);
+    return { from: fmt(from), to: fmt(today) };
+  }
+  if (dateFilter.value === "CUSTOM") {
+    if (!customFrom.value || !customTo.value) return null;
+    if (customFrom.value > customTo.value) return null;
+    return { from: customFrom.value, to: customTo.value };
+  }
+  return null;
+});
+
+watch([customFrom, customTo], ([from, to]) => {
+  if (dateFilter.value !== "CUSTOM") return;
+  if (from && to && from > to) {
+    customRangeError.value = "Tanggal 'Dari' tidak boleh setelah tanggal 'Sampai'.";
+    return;
+  }
+  customRangeError.value = "";
+  if (from && to) page.value = 1;
+});
+
+const activeDateRangeLabel = computed(() => {
+  const range = activeDateRange.value;
+  if (!range) return "";
+  const fmtLabel = (s) => new Intl.DateTimeFormat("id-ID", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(s));
+  if (range.from === range.to) return fmtLabel(range.from);
+  return `${fmtLabel(range.from)} — ${fmtLabel(range.to)}`;
+});
+
+const queryParams = computed(() => {
+  const params = {
+    status: activeTab.value,
+    page: page.value,
+    limit,
+  };
+  const range = activeDateRange.value;
+  if (range) {
+    params.startDate = range.from;
+    params.endDate = range.to;
+  }
+  return params;
+});
 
 const {
   data: response,
@@ -233,6 +384,11 @@ const requests = computed(() => response.value?.data || []);
 const hasData = computed(() => requests.value.length > 0);
 const pendingCount = computed(() => response.value?.pendingCount ?? 0);
 const totalPages = computed(() => response.value?.meta?.totalPages ?? 1);
+
+const emptyStateTitle = computed(() => {
+  if (dateFilter.value !== "ALL") return "Tidak ada pesanan pada rentang tanggal ini.";
+  return activeTab.value === "PENDING" ? "Tidak ada pesanan yang menunggu." : "Belum ada riwayat di tab ini.";
+});
 
 function goToPage(target) {
   const clamped = Math.min(Math.max(1, target), totalPages.value);
@@ -282,7 +438,7 @@ function formatTimeAgo(dateStr) {
   }).format(date);
 }
 
-// --- Deteksi pesanan baru (khusus tab PENDING, halaman 1) ---
+// --- Deteksi pesanan baru (khusus tab PENDING, halaman 1, tanpa filter tanggal) ---
 const hasInitialized = ref(false);
 const newOrderMap = reactive({});
 const newOrderCount = ref(0);
@@ -304,7 +460,7 @@ function handleNewOrderBannerClick() {
 watch(
   requests,
   (list) => {
-    const relevant = activeTab.value === "PENDING" && page.value === 1;
+    const relevant = activeTab.value === "PENDING" && page.value === 1 && dateFilter.value === "ALL";
     const currentIds = list.map((r) => r.id);
 
     if (!hasInitialized.value) {
@@ -411,166 +567,195 @@ async function confirmReject() {
 
 <style scoped>
 .label-xs {
-  font-size: 0.66rem;
-  font-weight: 500;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
+    font-size: 0.66rem;
+    font-weight: 500;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
 }
 
 .ticket-card {
-  background: #faf6ee;
-  border-radius: 6px;
-  border: 1.5px solid rgba(43, 27, 18, 0.12);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-  position: relative;
+    background: #faf6ee;
+    border-radius: 6px;
+    border: 1.5px solid rgba(43, 27, 18, 0.12);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    position: relative;
 }
 
 .live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #4a7c4a;
-  box-shadow: 0 0 0 3px rgba(74, 124, 74, 0.18);
-  flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #4a7c4a;
+    box-shadow: 0 0 0 3px rgba(74, 124, 74, 0.18);
+    flex-shrink: 0;
 }
 
 .live-dot--syncing {
-  background: #b8763c;
-  box-shadow: 0 0 0 3px rgba(184, 118, 60, 0.18);
-  animation: dot-pulse 1s ease-in-out infinite;
+    background: #b8763c;
+    box-shadow: 0 0 0 3px rgba(184, 118, 60, 0.18);
+    animation: dot-pulse 1s ease-in-out infinite;
 }
 
 @keyframes dot-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
 }
 
 .tab-btn {
-  padding: 0.45rem 0.85rem;
-  border-radius: 5px;
-  border: 1px solid rgba(43, 27, 18, 0.15);
-  background: #f4eee3;
-  color: #8A7A68;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  transition: all 0.15s ease;
+    padding: 0.45rem 0.85rem;
+    border-radius: 5px;
+    border: 1px solid rgba(43, 27, 18, 0.15);
+    background: #f4eee3;
+    color: #8A7A68;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.15s ease;
 }
 
 .tab-btn--active {
-  background: #2b1b12;
-  color: #faf6ee;
-  border-color: #2b1b12;
+    background: #2b1b12;
+    color: #faf6ee;
+    border-color: #2b1b12;
 }
 
 .tab-count {
-  background: #b8763c;
-  color: #faf6ee;
-  border-radius: 999px;
-  padding: 0 0.4rem;
-  font-size: 0.65rem;
-  line-height: 1.4;
+    background: #b8763c;
+    color: #faf6ee;
+    border-radius: 999px;
+    padding: 0 0.4rem;
+    font-size: 0.65rem;
+    line-height: 1.4;
+}
+
+.chip-btn {
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    border: 1px solid rgba(43, 27, 18, 0.15);
+    background: #f4eee3;
+    color: #8A7A68;
+    transition: all 0.15s ease;
+}
+
+.chip-btn--active {
+    background: #b8763c;
+    color: #faf6ee;
+    border-color: #b8763c;
 }
 
 .banner-new {
-  background: #fbf0e2;
-  border-color: rgba(184, 118, 60, 0.35);
-  color: #7a4a1f;
-  cursor: pointer;
+    background: #fbf0e2;
+    border-color: rgba(184, 118, 60, 0.35);
+    color: #7a4a1f;
+    cursor: pointer;
 }
 
 .pulse-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: #b8763c;
-  display: inline-block;
-  animation: dot-pulse 1s ease-in-out infinite;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #b8763c;
+    display: inline-block;
+    animation: dot-pulse 1s ease-in-out infinite;
 }
 
 .slide-fade-enter-active,
 .slide-fade-leave-active {
-  transition: all 0.25s ease;
+    transition: all 0.25s ease;
 }
+
 .slide-fade-enter-from,
 .slide-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
+    opacity: 0;
+    transform: translateY(-6px);
 }
 
 .row-new {
-  background: rgba(184, 118, 60, 0.1);
-  border-left: 3px solid #b8763c;
-  animation: row-glow 2s ease-in-out infinite;
+    background: rgba(184, 118, 60, 0.1);
+    border-left: 3px solid #b8763c;
+    animation: row-glow 2s ease-in-out infinite;
 }
 
 @keyframes row-glow {
-  0%, 100% { background-color: rgba(184, 118, 60, 0.14); }
-  50% { background-color: rgba(184, 118, 60, 0.04); }
+    0%, 100% { background-color: rgba(184, 118, 60, 0.14); }
+    50% { background-color: rgba(184, 118, 60, 0.04); }
 }
 
 .badge {
-  font-size: 0.66rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  display: inline-block;
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.badge-discount {
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    background: rgba(155, 58, 46, 0.12);
+    color: #9b3a2e;
+    border: 1px solid rgba(155, 58, 46, 0.25);
+    display: inline-block;
+    line-height: 1;
 }
 
 .badge-success { background: #e5efe1; color: #3f6b3f; }
 .badge-danger { background: #f5e2de; color: #9b3a2e; }
 .badge-warning { background: #fbf0e2; color: #7a4a1f; }
-
 .badge-new {
-  background: #b8763c;
-  color: #faf6ee;
-  animation: badge-pulse 1.4s ease-in-out infinite;
+    background: #b8763c;
+    color: #faf6ee;
+    animation: badge-pulse 1.4s ease-in-out infinite;
 }
 
 @keyframes badge-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(184, 118, 60, 0.45); }
-  50% { box-shadow: 0 0 0 4px rgba(184, 118, 60, 0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(184, 118, 60, 0.45); }
+    50% { box-shadow: 0 0 0 4px rgba(184, 118, 60, 0); }
 }
 
 .skeleton {
-  background: linear-gradient(90deg, #efe7d8 25%, #f7f1e6 37%, #efe7d8 63%);
-  background-size: 400% 100%;
-  animation: skeleton-shimmer 1.4s ease infinite;
+    background: linear-gradient(90deg, #efe7d8 25%, #f7f1e6 37%, #efe7d8 63%);
+    background-size: 400% 100%;
+    animation: skeleton-shimmer 1.4s ease infinite;
 }
 
 @keyframes skeleton-shimmer {
-  0% { background-position: 100% 50%; }
-  100% { background-position: 0 50%; }
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
 }
 
 .page-btn {
-  padding: 0.4rem 0.7rem;
-  border-radius: 4px;
-  border: 1px solid rgba(43, 27, 18, 0.15);
-  background: #f4eee3;
-  color: #2b1b12;
-  transition: background 0.12s ease, opacity 0.12s ease;
+    padding: 0.4rem 0.7rem;
+    border-radius: 4px;
+    border: 1px solid rgba(43, 27, 18, 0.15);
+    background: #f4eee3;
+    color: #2b1b12;
+    transition: background 0.12s ease, opacity 0.12s ease;
 }
+
 .page-btn:hover:not(:disabled) { background: #ecdfc9; }
 .page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn-stamp {
-  background: #2b1b12;
-  color: #faf6ee;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  padding: 0.85rem 1rem;
-  border-radius: 4px;
-  border: 1.5px solid #2b1b12;
-  cursor: pointer;
-  transition: transform 0.12s ease, background 0.15s ease;
+    background: #2b1b12;
+    color: #faf6ee;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    padding: 0.85rem 1rem;
+    border-radius: 4px;
+    border: 1.5px solid #2b1b12;
+    cursor: pointer;
+    transition: transform 0.12s ease, background 0.15s ease;
 }
+
 .btn-stamp:hover:not(:disabled) {
-  background: #b8763c;
-  border-color: #b8763c;
-  transform: rotate(-0.6deg) scale(1.01);
+    background: #b8763c;
+    border-color: #b8763c;
+    transform: rotate(-0.6deg) scale(1.01);
 }
 </style>

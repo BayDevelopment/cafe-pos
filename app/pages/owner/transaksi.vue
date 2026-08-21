@@ -9,6 +9,14 @@ useHead({
 const token = useCookie('auth_token')
 const { user } = useAuth()
 
+// --- Pengaturan Toko (untuk header struk: nama, alamat, no HP, logo) ---
+const { data: shopSettingsResponse } = await useFetch('/api/settings', {
+  key: 'shop-settings',
+  headers: token.value ? { Authorization: `Bearer ${token.value}` } : {}
+})
+
+const shopSettings = computed(() => shopSettingsResponse.value?.data || {})
+
 // --- Pagination & filter state ---
 const page = ref(1)
 const pageSize = ref(20)
@@ -919,8 +927,13 @@ function formatDate(dateString) {
 
           <!-- HEADER STRUK -->
           <div class="text-center border-b border-dashed border-[#2b1b12]/20 pb-4">
-            <h2 class="display text-xl text-[#2b1b12] font-bold uppercase">COFFEE SHOP POS</h2>
-            <p class="mono text-xs text-[#8A7A68]">
+            <img v-if="shopSettings.logo_url" :src="shopSettings.logo_url" :alt="shopSettings.shop_name"
+              class="w-10 h-10 object-cover rounded-full mx-auto mb-1.5 border border-[#2b1b12]/15" />
+            <h2 class="display text-xl text-[#2b1b12] font-bold uppercase">{{ shopSettings.shop_name || 'COFFEE SHOP POS' }}</h2>
+            <p v-if="shopSettings.address" class="mono text-[0.68rem] text-[#8A7A68] mt-0.5">{{ shopSettings.address }}</p>
+            <p v-if="shopSettings.phone" class="mono text-[0.68rem] text-[#8A7A68]">{{ shopSettings.phone }}</p>
+
+            <p class="mono text-xs text-[#8A7A68] mt-2 pt-2 border-t border-dotted border-[#2b1b12]/10">
               Struk Pembayaran #{{ formatInvoiceNo(selectedTrx.invoiceNo || selectedTrx.id) }}
             </p>
             <p class="mono label-xs text-[#8A7A68] mt-1">{{ formatDate(selectedTrx.createdAt) }}</p>
@@ -1006,7 +1019,7 @@ function formatDate(dateString) {
 
           <!-- ACTION BUTTONS -->
           <div class="flex items-center gap-3 pt-2">
-            <NuxtLink :to="`/kasir/order/${selectedTrx.id}`" class="btn-stamp mono flex-1 py-2.5 text-xs text-center">
+            <NuxtLink :to="`/owner/order/${selectedTrx.id}`" class="btn-stamp mono flex-1 py-2.5 text-xs text-center">
               🖨️ LIHAT STRUK
             </NuxtLink>
             <button type="button" class="mono text-xs text-[#8A7A68] hover:text-[#2b1b12] px-4 py-2.5 transition"

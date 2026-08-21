@@ -471,9 +471,9 @@ async function executeDelete() {
     isDeleting.value = true
 
     try {
-        await deleteProduct(product, refreshProducts)
+        const res = await deleteProduct(product, refreshProducts)
         productToDelete.value = null
-        triggerAlert(`Produk "${product.name}" berhasil dihapus!`, 'success')
+        triggerAlert(res?.message || `Produk "${product.name}" berhasil diproses.`, 'success')
     } catch (err) {
         triggerAlert(err?.data?.statusMessage || 'Gagal menghapus produk.', 'error')
     } finally {

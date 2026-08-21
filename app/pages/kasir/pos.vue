@@ -5,7 +5,7 @@
     <Transition name="slide-fade">
       <div v-if="showAlert"
         class="fixed top-5 right-5 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border mono text-xs"
-        :class="alertType === 'success' ? 'bg-[#2b1b12] text-[#faf6ee] border-[#b8763c]' : 'bg-[#9b3a2e] text-[#faf6ee] border-[#7a2e24]'">
+        :class="alertType === 'success' ? 'bg-[#1c1410] text-[#faf6ee] border-[#c9793f]' : 'bg-[#9b3a2e] text-[#faf6ee] border-[#7a2e24]'">
         <span class="text-base">{{ alertType === 'success' ? '✅' : '⚠️' }}</span>
         <p class="font-medium">{{ alertMessage }}</p>
       </div>
@@ -13,24 +13,29 @@
 
     <div class="p-4 md:p-10 max-w-7xl mx-auto space-y-6 md:space-y-8 font-sans">
 
-      <!-- HEADER HALAMAN -->
-      <header class="ticket-card p-4 md:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <!-- HEADER HALAMAN KASIR -->
+      <header class="ticket-card p-4 md:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[#faf6ee]">
         <div>
           <div class="flex items-center gap-2 mb-1">
-            <span class="mono label-xs px-2 py-0.5 rounded bg-[#2b1b12] text-[#faf6ee]">TRANSAKSI</span>
-            <span class="mono label-xs text-[#8A7A68]">POINT OF SALE</span>
+            <span class="mono label-xs px-2 py-0.5 rounded bg-[#c9793f] text-[#faf6ee] font-bold">PORTAL KASIR</span>
+            <span class="mono label-xs text-[#1c1410]/60">SISTEM POINT OF SALE (POS)</span>
           </div>
-          <h1 class="display text-xl md:text-2xl text-[#2b1b12] font-bold">Pemesanan Kasir</h1>
-          <p class="mono text-xs text-[#8A7A68] mt-0.5">Pilih menu pesanan pelanggan dari daftar di bawah.</p>
+          <h1 class="display text-xl md:text-2xl text-[#1c1410] font-bold">Transaksi Kasir</h1>
+          <p class="mono text-xs text-[#1c1410]/70 mt-0.5">Melayani pesanan dan mengelola transaksi pelanggan.</p>
         </div>
 
-        <div class="mono text-xs text-[#2b1b12] bg-[#f4eee3] px-4 py-2 rounded border border-[#2b1b12]/10 w-full md:w-auto text-center">
-          Total Item di Keranjang: <span class="font-bold text-[#b8763c]">{{ totalCartItems }}</span>
+        <div class="flex items-center gap-3 w-full md:w-auto">
+          <NuxtLink to="/kasir/dashboard" class="btn-stamp-secondary mono inline-flex items-center gap-2 no-underline text-xs py-2 px-3">
+            <span>← KEMBALI KE DASHBOARD</span>
+          </NuxtLink>
+          <div class="mono text-xs text-[#1c1410] bg-white/60 px-4 py-2 rounded border border-[#1c1410]/10 text-center flex-1 md:flex-initial">
+            Keranjang: <span class="font-bold text-[#c9793f]">{{ totalCartItems }} item</span>
+          </div>
         </div>
       </header>
 
       <!-- ERROR STATE -->
-      <div v-if="fetchError" class="ticket-card p-10 text-center space-y-3">
+      <div v-if="fetchError" class="ticket-card p-10 text-center space-y-3 bg-[#faf6ee]">
         <p class="mono text-xs text-[#9b3a2e]">Gagal memuat katalog menu. Periksa koneksi atau coba lagi.</p>
         <button type="button" class="btn-stamp mono inline-flex px-4 py-2 text-xs" @click="refreshProducts">
           COBA LAGI
@@ -42,30 +47,30 @@
 
         <!-- DAFTAR PRODUK (KIRI - 2 KOLOM) -->
         <section class="lg:col-span-2 space-y-4">
-          <h2 class="display text-lg text-[#2b1b12] font-bold">
-            Daftar Menu Tersedia
+          <h2 class="display text-lg text-[#1c1410] font-bold">
+            Katalog Menu Kafe
           </h2>
 
           <!-- FILTER: PENCARIAN & KATEGORI -->
-          <div class="ticket-card p-4 flex flex-col sm:flex-row gap-3">
+          <div class="ticket-card p-4 flex flex-col sm:flex-row gap-3 bg-[#faf6ee]">
             <div class="flex-1">
-              <label for="product-search" class="mono label-xs block text-[#8A7A68] mb-1">Cari Menu</label>
+              <label for="product-search-kasir" class="mono label-xs block text-[#1c1410]/60 mb-1">Cari Menu</label>
               <input
-                id="product-search"
+                id="product-search-kasir"
                 v-model="searchQuery"
                 type="text"
                 placeholder="Ketik nama menu..."
                 :disabled="pending"
-                class="field mono text-xs p-2 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full focus:outline-none focus:border-[#b8763c] disabled:opacity-50 disabled:cursor-not-allowed"
+                class="field mono text-xs p-2 bg-white rounded border border-[#1c1410]/20 w-full focus:outline-none focus:border-[#c9793f] disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
             <div class="sm:w-52">
-              <label for="category-filter" class="mono label-xs block text-[#8A7A68] mb-1">Kategori</label>
+              <label for="category-filter-kasir" class="mono label-xs block text-[#1c1410]/60 mb-1">Kategori</label>
               <select
-                id="category-filter"
+                id="category-filter-kasir"
                 v-model="selectedCategoryId"
                 :disabled="pending"
-                class="field mono text-xs p-2 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full focus:outline-none focus:border-[#b8763c] disabled:opacity-50 disabled:cursor-not-allowed"
+                class="field mono text-xs p-2 bg-white rounded border border-[#1c1410]/20 w-full focus:outline-none focus:border-[#c9793f] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="ALL">Semua Kategori</option>
                 <option v-for="category in categories" :key="category.id" :value="category.id">
@@ -77,7 +82,7 @@
 
           <!-- SKELETON KATALOG (loading) -->
           <div v-if="pending" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div v-for="n in itemsPerPage" :key="'sk-' + n" class="ticket-card p-4 flex flex-col justify-between">
+            <div v-for="n in itemsPerPage" :key="'sk-kasir-' + n" class="ticket-card p-4 flex flex-col justify-between bg-[#faf6ee]">
               <div>
                 <div class="skeleton w-full h-32 rounded mb-3"></div>
                 <div class="flex justify-between items-start gap-2 mb-2">
@@ -89,7 +94,7 @@
                 </div>
                 <div class="skeleton h-5 w-24 rounded mt-2"></div>
               </div>
-              <div class="mt-4 pt-3 border-t border-[#2b1b12]/10 flex items-center justify-between">
+              <div class="mt-4 pt-3 border-t border-[#1c1410]/10 flex items-center justify-between">
                 <div class="skeleton h-3 w-28 rounded"></div>
                 <div class="skeleton w-7 h-7 rounded"></div>
               </div>
@@ -97,104 +102,124 @@
           </div>
 
           <!-- KATALOG PRODUK -->
-          <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div
-              v-for="product in paginatedProducts"
-              :key="product.id"
-              :class="[
-                'ticket-card p-4 flex flex-col justify-between transition group select-none',
-                product.stock > 0
-                  ? 'hover:border-[#b8763c] cursor-pointer'
-                  : 'opacity-60 bg-red-50/50 border-red-200 cursor-not-allowed'
-              ]"
-              @click="product.stock > 0 && addToCart(product)"
-            >
-              <div>
-                <!-- Gambar Produk -->
-                <div class="w-full h-32 rounded overflow-hidden bg-[#f4eee3] border border-[#2b1b12]/10 mb-3 flex items-center justify-center relative">
-                  <img
-                    v-if="product.image"
-                    :src="product.image"
-                    :alt="product.name"
-                    class="w-full h-full object-cover"
-                    :class="{ 'grayscale': product.stock <= 0 }"
-                    loading="lazy"
-                    @error="$event.target.style.display = 'none'"
-                  />
-                  <span v-else class="display text-2xl font-bold text-[#b8763c]/40">
-                    {{ product.name?.charAt(0).toUpperCase() }}
-                  </span>
+        <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div
+            v-for="product in paginatedProducts"
+            :key="product.id"
+            :class="[
+              'ticket-card p-4 flex flex-col justify-between transition group select-none bg-[#faf6ee]',
+              product.stock > 0
+                ? 'hover:border-[#c9793f] cursor-pointer'
+                : 'opacity-60 bg-red-50/50 border-red-200 cursor-not-allowed'
+            ]"
+            @click="product.stock > 0 && addToCart(product)"
+          >
+            <div>
+              <!-- Gambar Produk & Badge Diskon Persen -->
+              <div class="w-full h-32 rounded overflow-hidden bg-white border border-[#1c1410]/10 mb-3 flex items-center justify-center relative">
+                <img
+                  v-if="product.image"
+                  :src="product.image"
+                  :alt="product.name"
+                  class="w-full h-full object-cover"
+                  :class="{ 'grayscale': product.stock <= 0 }"
+                  loading="lazy"
+                  @error="$event.target.style.display = 'none'"
+                />
+                <span v-else class="display text-2xl font-bold text-[#c9793f]/40">
+                  {{ product.name?.charAt(0).toUpperCase() }}
+                </span>
 
-                  <!-- Overlay Badge saat Stok Habis -->
-                  <span
-                    v-if="product.stock <= 0"
-                    class="absolute inset-0 bg-red-900/40 backdrop-blur-[1px] flex items-center justify-center font-bold text-white tracking-widest text-xs uppercase"
-                  >
-                    STOK HABIS
-                  </span>
+                <!-- Badge Persentase Diskon di Card -->
+                <span
+                  v-if="product.discount > 0 && product.stock > 0"
+                  class="absolute top-2 left-2 bg-[#9b3a2e] text-white mono text-[10px] font-bold px-2 py-0.5 rounded shadow"
+                >
+                  {{ Math.round((product.discount / product.price) * 100) }}% OFF
+                </span>
+
+                <!-- Overlay Badge saat Stok Habis -->
+                <span
+                  v-if="product.stock <= 0"
+                  class="absolute inset-0 bg-red-900/40 backdrop-blur-[1px] flex items-center justify-center font-bold text-white tracking-widest text-xs uppercase"
+                >
+                  STOK HABIS
+                </span>
+              </div>
+
+              <div class="flex justify-between items-start gap-2 mb-2">
+                <div>
+                  <h3 :class="['display text-base font-bold transition', product.stock > 0 ? 'text-[#1c1410] group-hover:text-[#c9793f]' : 'text-gray-400 line-through']">
+                    {{ product.name }}
+                  </h3>
+                  <span class="mono text-[0.65rem] text-[#1c1410]/60">{{ product.category?.name }}</span>
                 </div>
 
-                <div class="flex justify-between items-start gap-2 mb-2">
-                  <div>
-                    <h3 :class="['display text-base font-bold transition', product.stock > 0 ? 'text-[#2b1b12] group-hover:text-[#b8763c]' : 'text-gray-400 line-through']">
-                      {{ product.name }}
-                    </h3>
-                    <span class="mono text-[0.65rem] text-[#8A7A68]">{{ product.category?.name }}</span>
+                <!-- Badge Stok -->
+                <span :class="[
+                  'mono label-xs px-2 py-0.5 rounded whitespace-nowrap font-semibold',
+                  product.stock <= 0
+                    ? 'bg-[#9b3a2e] text-white border border-[#9b3a2e]'
+                    : (product.stock > 5 ? 'bg-emerald-500/10 text-emerald-700' : 'bg-[#c9793f]/10 text-[#c9793f]')
+                ]">
+                  {{ product.stock <= 0 ? 'HABIS' : 'Stok: ' + product.stock }}
+                </span>
+              </div>
+
+              <!-- Harga Coret & Harga Diskon -->
+              <div class="mt-2">
+                <div v-if="product.discount > 0">
+                  <div class="flex items-center gap-2">
+                    <span class="line-through text-xs text-[#1c1410]/50">{{ formatCurrency(product.price) }}</span>
+                    <span class="mono text-[10px] text-[#9b3a2e] font-semibold bg-red-100 px-1.5 py-0.5 rounded">Hemat {{ formatCurrency(product.discount) }}</span>
                   </div>
-
-                  <!-- Badge Stok -->
-                  <span :class="[
-                    'mono label-xs px-2 py-0.5 rounded whitespace-nowrap font-semibold',
-                    product.stock <= 0
-                      ? 'bg-[#9b3a2e] text-white border border-[#9b3a2e]'
-                      : (product.stock > 5 ? 'bg-[#2f7a46]/10 text-[#2f7a46]' : 'bg-[#b8763c]/10 text-[#b8763c]')
-                  ]">
-                    {{ product.stock <= 0 ? 'HABIS' : 'Stok: ' + product.stock }}
-                  </span>
+                  <p class="display text-lg font-bold text-[#9b3a2e] mt-0.5">
+                    {{ formatCurrency(product.price - product.discount) }}
+                  </p>
                 </div>
-
-                <p class="display text-lg font-bold text-[#b8763c] mt-2">
+                <p v-else class="display text-lg font-bold text-[#c9793f] mt-2">
                   {{ formatCurrency(product.price) }}
                 </p>
               </div>
+            </div>
 
-              <!-- Tampilan Tombol Tambah vs Status Habis -->
-              <div class="mt-4 pt-3 border-t border-[#2b1b12]/10 flex items-center justify-between">
-                <span :class="['mono text-[0.65rem]', product.stock > 0 ? 'text-[#8A7A68]' : 'text-[#9b3a2e] font-bold']">
-                  {{ product.stock > 0 ? 'KLIK UNTUK TAMBAH' : 'TIDAK DAPAT DIPESAN' }}
-                </span>
-                <span :class="[
-                  'w-7 h-7 rounded flex items-center justify-center font-bold text-sm transition',
-                  product.stock > 0
-                    ? 'bg-[#2b1b12] text-[#faf6ee] group-hover:bg-[#b8763c]'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                ]">
-                  {{ product.stock > 0 ? '+' : '×' }}
-                </span>
-              </div>
+            <!-- Tombol Tambah -->
+            <div class="mt-4 pt-3 border-t border-[#1c1410]/10 flex items-center justify-between">
+              <span :class="['mono text-[0.65rem]', product.stock > 0 ? 'text-[#1c1410]/60' : 'text-[#9b3a2e] font-bold']">
+                {{ product.stock > 0 ? 'KLIK UNTUK TAMBAH' : 'TIDAK DAPAT DIPESAN' }}
+              </span>
+              <span :class="[
+                'w-7 h-7 rounded flex items-center justify-center font-bold text-sm transition',
+                product.stock > 0
+                  ? 'bg-[#1c1410] text-[#faf6ee] group-hover:bg-[#c9793f]'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              ]">
+                {{ product.stock > 0 ? '+' : '×' }}
+              </span>
             </div>
           </div>
+        </div>
 
-          <div v-if="!pending && products.length === 0" class="ticket-card p-8 text-center mono text-xs text-[#8A7A68]">
+          <div v-if="!pending && products.length === 0" class="ticket-card p-8 text-center mono text-xs text-[#1c1410]/60 bg-[#faf6ee]">
             Belum ada produk tersedia di database.
           </div>
-          <div v-else-if="!pending && filteredProducts.length === 0" class="ticket-card p-8 text-center mono text-xs text-[#8A7A68]">
+          <div v-else-if="!pending && filteredProducts.length === 0" class="ticket-card p-8 text-center mono text-xs text-[#1c1410]/60 bg-[#faf6ee]">
             Tidak ada menu yang cocok dengan pencarian/kategori ini.
           </div>
 
           <!-- PAGINASI -->
-          <div v-if="!pending && totalPages > 1" class="ticket-card p-3 flex items-center justify-between gap-2">
+          <div v-if="!pending && totalPages > 1" class="ticket-card p-3 flex items-center justify-between gap-2 bg-[#faf6ee]">
             <button
               type="button"
               :disabled="currentPage === 1"
               aria-label="Halaman sebelumnya"
-              class="mono label-xs px-2.5 sm:px-3 py-2 rounded border border-[#2b1b12]/15 text-[#2b1b12] hover:bg-[#2b1b12] hover:text-[#faf6ee] transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+              class="mono label-xs px-2.5 sm:px-3 py-2 rounded border border-[#1c1410]/15 text-[#1c1410] hover:bg-[#1c1410] hover:text-[#faf6ee] transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
               @click="goToPage(currentPage - 1)"
             >
               ‹ <span class="hidden sm:inline ml-1">SEBELUMNYA</span>
             </button>
 
-            <span class="sm:hidden mono label-xs text-[#8A7A68]">
+            <span class="sm:hidden mono label-xs text-[#1c1410]/60">
               HAL {{ currentPage }} / {{ totalPages }}
             </span>
 
@@ -206,8 +231,8 @@
                 :class="[
                   'mono label-xs w-8 h-8 rounded transition shrink-0',
                   page === currentPage
-                    ? 'bg-[#b8763c] text-[#faf6ee]'
-                    : 'text-[#8A7A68] hover:bg-[#2b1b12]/10'
+                    ? 'bg-[#c9793f] text-[#faf6ee]'
+                    : 'text-[#1c1410]/60 hover:bg-[#1c1410]/10'
                 ]"
                 @click="goToPage(page)"
               >
@@ -219,7 +244,7 @@
               type="button"
               :disabled="currentPage === totalPages"
               aria-label="Halaman berikutnya"
-              class="mono label-xs px-2.5 sm:px-3 py-2 rounded border border-[#2b1b12]/15 text-[#2b1b12] hover:bg-[#2b1b12] hover:text-[#faf6ee] transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+              class="mono label-xs px-2.5 sm:px-3 py-2 rounded border border-[#1c1410]/15 text-[#1c1410] hover:bg-[#1c1410] hover:text-[#faf6ee] transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
               @click="goToPage(currentPage + 1)"
             >
               <span class="hidden sm:inline mr-1">BERIKUTNYA</span> ›
@@ -229,27 +254,27 @@
 
         <!-- STRUK / KERANJANG BELANJA (KANAN - 1 KOLOM) -->
         <section class="space-y-4 lg:self-start lg:sticky lg:top-6">
-          <h2 class="display text-lg text-[#2b1b12] font-bold">
-            Struk Pesanan
+          <h2 class="display text-lg text-[#1c1410] font-bold">
+            Struk Pesanan Kasir
           </h2>
 
-          <div class="ticket-card p-5 md:p-6 space-y-4">
+          <div class="ticket-card p-5 md:p-6 space-y-4 bg-[#faf6ee]">
             <!-- INPUT NAMA PELANGGAN -->
             <div>
-              <label for="customer-name" class="mono label-xs block text-[#8A7A68] mb-1">Nama Pelanggan (Opsional)</label>
+              <label for="customer-name-kasir" class="mono label-xs block text-[#1c1410]/60 mb-1">Nama Pelanggan / Meja (Opsional)</label>
               <input
-                id="customer-name"
+                id="customer-name-kasir"
                 v-model="customerName"
                 type="text"
-                placeholder="Contoh: Budi / Meja 05"
+                placeholder="Contoh: John Doe / Meja 4"
                 :disabled="isProcessing"
-                class="field mono text-xs p-2 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full focus:outline-none focus:border-[#b8763c] disabled:opacity-50"
+                class="field mono text-xs p-2 bg-white rounded border border-[#1c1410]/20 w-full focus:outline-none focus:border-[#c9793f] disabled:opacity-50"
               />
             </div>
 
-            <div class="border-b border-dashed border-[#2b1b12]/20 pb-3 flex justify-between items-center">
-              <span class="mono label-xs text-[#8A7A68]">ITEM PESANAN</span>
-              <span class="mono label-xs text-[#8A7A68]">SUBTOTAL</span>
+            <div class="border-b border-dashed border-[#1c1410]/20 pb-3 flex justify-between items-center">
+              <span class="mono label-xs text-[#1c1410]/60">ITEM PESANAN</span>
+              <span class="mono label-xs text-[#1c1410]/60">SUBTOTAL</span>
             </div>
 
             <!-- DAFTAR ITEM DI KERANJANG -->
@@ -260,23 +285,26 @@
                 class="flex justify-between items-center text-sm font-mono"
               >
                 <div class="flex-1 pr-2">
-                  <p class="text-[#2b1b12] font-bold truncate">{{ item.name }}</p>
-                  <p class="text-[0.7rem] text-[#8A7A68]">{{ formatCurrency(item.price) }} x {{ item.quantity }}</p>
+                  <p class="text-[#1c1410] font-bold truncate">{{ item.name }}</p>
+                  <p class="text-[0.7rem] text-[#1c1410]/60">
+                    <span v-if="item.discount > 0" class="line-through mr-1">{{ formatCurrency(item.price) }}</span>
+                    <span>{{ formatCurrency(item.price - item.discount) }} x {{ item.quantity }}</span>
+                  </p>
                 </div>
                 <div class="text-right">
-                  <p class="font-bold text-[#2b1b12]">{{ formatCurrency(item.price * item.quantity) }}</p>
+                  <p class="font-bold text-[#1c1410]">{{ formatCurrency((item.price - item.discount) * item.quantity) }}</p>
                   <div class="flex items-center gap-1 justify-end mt-1">
                     <button
                       type="button"
                       :disabled="isProcessing"
-                      class="px-2 py-0.5 bg-[#2b1b12]/10 rounded text-xs hover:bg-[#b8763c] hover:text-white transition disabled:opacity-50"
+                      class="px-2 py-0.5 bg-[#1c1410]/10 rounded text-xs hover:bg-[#c9793f] hover:text-white transition disabled:opacity-50"
                       aria-label="Kurangi jumlah"
                       @click.stop="decreaseQuantity(index)"
                     >-</button>
                     <button
                       type="button"
                       :disabled="isProcessing"
-                      class="px-2 py-0.5 bg-[#2b1b12]/10 rounded text-xs hover:bg-[#b8763c] hover:text-white transition disabled:opacity-50"
+                      class="px-2 py-0.5 bg-[#1c1410]/10 rounded text-xs hover:bg-[#c9793f] hover:text-white transition disabled:opacity-50"
                       aria-label="Tambah jumlah"
                       @click.stop="increaseQuantity(index)"
                     >+</button>
@@ -292,59 +320,60 @@
                 </div>
               </div>
 
-              <div v-if="cart.length === 0" class="text-center py-6 mono text-xs text-[#8A7A68]">
+              <div v-if="cart.length === 0" class="text-center py-6 mono text-xs text-[#1c1410]/60">
                 Keranjang masih kosong. Pilih menu di samping.
               </div>
             </div>
 
             <!-- RINCIAN TRANSAKSI -->
-            <div class="border-t border-dashed border-[#2b1b12]/20 pt-4 space-y-3">
+            <div class="border-t border-dashed border-[#1c1410]/20 pt-4 space-y-3">
               <div class="flex justify-between items-center">
-                <span class="mono text-xs text-[#8A7A68]">Subtotal</span>
-                <span class="mono text-xs text-[#2b1b12] font-bold">{{ formatCurrency(cartTotal) }}</span>
+                <span class="mono text-xs text-[#1c1410]/60">Subtotal Kotor</span>
+                <span class="mono text-xs text-[#1c1410] font-bold">{{ formatCurrency(cartGrossTotal) }}</span>
               </div>
 
-              <!-- DISKON -->
+              <!-- DISKON OTOMATIS DARI PRODUK -->
               <div>
-                <label for="order-discount" class="mono label-xs block text-[#8A7A68] mb-1">Diskon (Rp)</label>
+                <div class="flex justify-between items-center mb-1">
+                  <label for="order-discount-kasir" class="mono label-xs text-[#1c1410]/60">Total Diskon Produk</label>
+                  <span class="mono text-[0.6rem] text-[#c9793f] font-semibold">Otomatis dari Katalog</span>
+                </div>
+                <!-- Input sudah disabled agar kasir tidak mengetik manual -->
                 <input
-                  id="order-discount"
-                  v-model.number="discount"
+                  id="order-discount-kasir"
+                  :value="discount"
                   type="number"
-                  min="0"
-                  :max="cartTotal"
-                  placeholder="0"
-                  :disabled="isProcessing"
-                  class="field mono text-xs p-2 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full focus:outline-none focus:border-[#b8763c] disabled:opacity-50"
+                  disabled
+                  class="field mono text-xs p-2 bg-gray-100 rounded border border-[#1c1410]/20 w-full text-gray-600 cursor-not-allowed font-bold"
                 />
               </div>
 
               <div class="flex justify-between items-center">
-                <span class="mono text-xs text-[#8A7A68] uppercase font-bold">Total Pembayaran</span>
-                <span class="display text-xl font-bold text-[#2b1b12]">{{ formatCurrency(grandTotal) }}</span>
+                <span class="mono text-xs text-[#1c1410]/60 uppercase font-bold">Total Pembayaran</span>
+                <span class="display text-xl font-bold text-[#1c1410]">{{ formatCurrency(grandTotal) }}</span>
               </div>
 
               <!-- CATATAN -->
               <div>
-                <label for="order-note" class="mono label-xs block text-[#8A7A68] mb-1">Catatan Pesanan (Opsional)</label>
+                <label for="order-note-kasir" class="mono label-xs block text-[#1c1410]/60 mb-1">Catatan Pesanan (Opsional)</label>
                 <input
-                  id="order-note"
+                  id="order-note-kasir"
                   v-model="orderNote"
                   type="text"
-                  placeholder="Contoh: Tanpa gula, es sedikit"
+                  placeholder="Contoh: Jangan terlalu manis, ekstra es..."
                   :disabled="isProcessing"
-                  class="field mono text-xs p-2 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full focus:outline-none focus:border-[#b8763c] disabled:opacity-50"
+                  class="field mono text-xs p-2 bg-white rounded border border-[#1c1410]/20 w-full focus:outline-none focus:border-[#c9793f] disabled:opacity-50"
                 />
               </div>
 
               <!-- METODE PEMBAYARAN -->
               <div>
-                <label for="payment-method" class="mono label-xs block text-[#8A7A68] mb-1">Metode Pembayaran</label>
+                <label for="payment-method-kasir" class="mono label-xs block text-[#1c1410]/60 mb-1">Metode Pembayaran</label>
                 <select
-                  id="payment-method"
+                  id="payment-method-kasir"
                   v-model="paymentMethod"
                   :disabled="isProcessing"
-                  class="field mono text-xs p-2 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full focus:outline-none focus:border-[#b8763c] disabled:opacity-50"
+                  class="field mono text-xs p-2 bg-white rounded border border-[#1c1410]/20 w-full focus:outline-none focus:border-[#c9793f] disabled:opacity-50"
                 >
                   <option value="CASH">TUNAI (CASH)</option>
                   <option value="QRIS">QRIS / DIGITAL</option>
@@ -368,7 +397,7 @@
               @click="checkout"
             >
               <span v-if="isProcessing" class="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-              {{ isProcessing ? 'MEMPROSES TRANSAKSI…' : 'SELESAIKAN & CETAK STRUK' }}
+              {{ isProcessing ? 'MEMPROSES TRANSAKSI…' : 'PROSES PEMBAYARAN' }}
             </button>
           </div>
         </section>
@@ -379,9 +408,13 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+definePageMeta({
+  middleware: ['auth']
+})
+
 useHead({
-  title: 'Pemesanan Kasir - POS System',
+  title: 'Transaksi POS - Portal Kasir',
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap' }
@@ -393,11 +426,10 @@ const { data: response, pending, error: fetchError, refresh: refreshProducts } =
 const products = computed(() => response.value?.data || [])
 
 // State Form & Cart
-const cart = ref([])
+const cart = ref<any[]>([])
 const customerName = ref('')
 const paymentMethod = ref('CASH')
 const orderNote = ref('')
-const discount = ref(0)
 const isProcessing = ref(false)
 const checkoutError = ref('')
 
@@ -412,12 +444,12 @@ const categories = computed(() => {
       map.set(product.category.id, product.category)
     }
   }
-  return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name))
+  return Array.from(map.values()).sort((a: any, b: any) => a.name.localeCompare(b.name))
 })
 
 const filteredProducts = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
-  return products.value.filter(product => {
+  return products.value.filter((product: any) => {
     const matchesSearch = !query || product.name.toLowerCase().includes(query)
     const matchesCategory = selectedCategoryId.value === 'ALL' || product.categoryId === selectedCategoryId.value
     return matchesSearch && matchesCategory
@@ -435,7 +467,7 @@ const paginatedProducts = computed(() => {
   return filteredProducts.value.slice(start, start + itemsPerPage)
 })
 
-function goToPage(page) {
+function goToPage(page: number) {
   if (page < 1 || page > totalPages.value) return
   currentPage.value = page
 }
@@ -450,28 +482,31 @@ watch(totalPages, (newTotal) => {
   }
 })
 
-function formatCurrency(value) {
+function formatCurrency(value: number) {
   return 'Rp ' + Number(value || 0).toLocaleString('id-ID')
 }
 
 const totalCartItems = computed(() => cart.value.reduce((sum, item) => sum + item.quantity, 0))
-const cartTotal = computed(() => cart.value.reduce((sum, item) => sum + (Number(item.price) * item.quantity), 0))
 
-const normalizedDiscount = computed(() => {
-  const d = Number(discount.value) || 0
-  if (d < 0) return 0
-  if (d > cartTotal.value) return cartTotal.value
-  return d
+// Subtotal kotor sebelum diskon produk
+const cartGrossTotal = computed(() => cart.value.reduce((sum, item) => sum + (Number(item.price) * item.quantity), 0))
+
+// Total diskon otomatis dihitung dari item produk yang masuk keranjang
+const discount = computed(() => {
+  return cart.value.reduce((sum, item) => {
+    const itemDiscount = Number(item.discount || 0)
+    return sum + (itemDiscount * item.quantity)
+  }, 0)
 })
 
-const grandTotal = computed(() => cartTotal.value - normalizedDiscount.value)
+const grandTotal = computed(() => cartGrossTotal.value - discount.value)
 
-// --- Alert / Toast State (Custom, menggantikan SweetAlert2) ---
+// --- Alert / Toast State ---
 const alertMessage = ref('')
-const alertType = ref('success') // 'success' | 'error'
+const alertType = ref('success')
 const showAlert = ref(false)
 
-function triggerAlert(msg, type = 'success') {
+function triggerAlert(msg: string, type = 'success') {
   alertMessage.value = msg
   alertType.value = type
   showAlert.value = true
@@ -481,7 +516,7 @@ function triggerAlert(msg, type = 'success') {
 }
 
 // Keranjang Actions
-function addToCart(product) {
+function addToCart(product: any) {
   if (product.stock <= 0) return
 
   const existingIndex = cart.value.findIndex(item => item.id === product.id)
@@ -496,14 +531,15 @@ function addToCart(product) {
     cart.value.push({
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: Number(product.price),
+      discount: Number(product.discount || 0),
       quantity: 1,
       stock: product.stock
     })
   }
 }
 
-function increaseQuantity(index) {
+function increaseQuantity(index: number) {
   const item = cart.value[index]
   if (item.quantity < item.stock) {
     item.quantity++
@@ -512,7 +548,7 @@ function increaseQuantity(index) {
   }
 }
 
-function decreaseQuantity(index) {
+function decreaseQuantity(index: number) {
   if (cart.value[index].quantity > 1) {
     cart.value[index].quantity--
   } else {
@@ -520,14 +556,14 @@ function decreaseQuantity(index) {
   }
 }
 
-function removeFromCart(index) {
+function removeFromCart(index: number) {
   cart.value.splice(index, 1)
 }
 
-// --- SUARA CHIME POS JERNIH & MELODIS (WEB AUDIO API) ---
+// --- SUARA CHIME POS ---
 function playSuccessSound() {
   try {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext
     if (!AudioContextClass) return
 
     const audioCtx = new AudioContextClass()
@@ -535,11 +571,10 @@ function playSuccessSound() {
       audioCtx.resume()
     }
 
-    // Tone 1
     const osc1 = audioCtx.createOscillator()
     const gain1 = audioCtx.createGain()
     osc1.type = 'sine'
-    osc1.frequency.setValueAtTime(659.25, audioCtx.currentTime) // Note E5
+    osc1.frequency.setValueAtTime(659.25, audioCtx.currentTime)
     gain1.gain.setValueAtTime(0.15, audioCtx.currentTime)
     gain1.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3)
     osc1.connect(gain1)
@@ -547,12 +582,11 @@ function playSuccessSound() {
     osc1.start()
     osc1.stop(audioCtx.currentTime + 0.3)
 
-    // Tone 2 (Chime)
     setTimeout(() => {
       const osc2 = audioCtx.createOscillator()
       const gain2 = audioCtx.createGain()
       osc2.type = 'sine'
-      osc2.frequency.setValueAtTime(987.77, audioCtx.currentTime) // Note B5
+      osc2.frequency.setValueAtTime(987.77, audioCtx.currentTime)
       gain2.gain.setValueAtTime(0.2, audioCtx.currentTime)
       gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5)
       osc2.connect(gain2)
@@ -561,16 +595,14 @@ function playSuccessSound() {
       osc2.stop(audioCtx.currentTime + 0.5)
     }, 100)
   } catch (e) {
-    // Fallback jika browser memblokir Web Audio Context
+    // Fallback
   }
 }
 
-// --- CHECKOUT PROCESS (DENGAN PERLINDUNGAN ANTI DOUBLE-CLICK) ---
+// --- CHECKOUT PROCESS ---
 async function checkout() {
-  // Guard 1: Cegah jika keranjang kosong atau proses transaksi sedang berjalan (Anti Double Click)
   if (cart.value.length === 0 || isProcessing.value) return
 
-  // Kunci tombol checkout secara mendadak
   isProcessing.value = true
   checkoutError.value = ''
 
@@ -578,53 +610,57 @@ async function checkout() {
     const authCookie = useCookie('auth_token')
     const token = authCookie.value
 
-    const res = await $fetch('/api/order', {
+    const res: any = await $fetch('/api/order', {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: {
         items: cart.value.map(item => ({
           productId: item.id,
-          quantity: item.quantity,
-          price: item.price
+          quantity: item.quantity
         })),
         customerName: customerName.value || null,
         paymentMethod: paymentMethod.value,
-        totalAmount: grandTotal.value,
-        discount: normalizedDiscount.value,
+        discount: discount.value,
         note: orderNote.value || null
       }
     })
 
     if (res && res.success && res.orderId) {
       const orderId = res.orderId
-
-      // 1. Alert Toast (Custom, menggantikan Swal)
-      triggerAlert(`Pembelian berhasil! ID Transaksi: #${orderId}`, 'success')
-
-      // 2. Play Audio Chime Jernih
+      triggerAlert(`Transaksi Berhasil! ID: #${orderId}`, 'success')
       playSuccessSound()
 
-      // 3. Reset Form & Refresh Data Stok
       cart.value = []
       customerName.value = ''
       orderNote.value = ''
-      discount.value = 0
       await refreshProducts()
     } else {
       checkoutError.value = 'Transaksi gagal diproses. Silakan coba lagi.'
     }
-  } catch (error) {
+  } catch (error: any) {
     const errorMessage = error.data?.statusMessage || error.data?.message || error.message || 'Terjadi kesalahan sistem'
     checkoutError.value = 'Gagal memproses transaksi: ' + errorMessage
-
-    // Jika error disebabkan oleh stok habis di server, refresh produk otomatis
     await refreshProducts()
   } finally {
-    // Buka kembali kuncian setelah seluruh proses selesai
     isProcessing.value = false
   }
 }
 </script>
+
+<style scoped>
+/* Transition Animasi Slide Toast Alert */
+.slide-fade-enter-active {
+  transition: all 0.3s ease-out;
+}
+.slide-fade-leave-active {
+  transition: all 0.2s cubic-bezier(1, 0.5, 0.8, 1);
+}
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translateY(-20px);
+  opacity: 0;
+}
+</style>
 
 <style scoped>
 .label-xs {

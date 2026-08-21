@@ -221,21 +221,17 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // ==========================================
-  // HAPUS PRODUK (DELETE) — HANYA PEMILIK
-  // ==========================================
   if (method === "DELETE") {
     try {
-      // 1. Cek keberadaan produk beserta jumlah riwayat pesanannya
       const existingProduct = await db.product.findUnique({
         where: { id: productId },
         select: {
           id: true,
           image: true,
+          isActive: true,
           _count: {
             select: {
               orderItems: true,
-              orderRequestItems: true,
             },
           },
         },
@@ -245,10 +241,22 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 404, message: "Produk tidak ditemukan." });
       }
 
-      // 2. Jika sudah terikat riwayat transaksi -> Otomatis Soft Delete (isActive: false)
-      const hasTransactionHistory =
-        (existingProduct._count?.orderItems ?? 0) > 0 ||
-        (existingProduct._count?.orderRequestItems ?? 0) > 0;
+      if (existingProduct.isActive === false) {
+        const deletedProduct = await db.product.delete({ where: { id: productId } });
+
+        if (deletedProduct.image) {
+          await safeDeleteFile(deletedProduct.image);
+        }
+
+        return {
+          success: true,
+          message: "Produk non-aktif berhasil dihapus permanen beserta gambarnya.",
+          data: deletedProduct,
+        };
+      }
+
+      // 3. Jika produk masih aktif dan sudah terikat riwayat transaksi RIIL -> Soft Delete (isActive: false)
+      const hasTransactionHistory = (existingProduct._count?.orderItems ?? 0) > 0;
 
       if (hasTransactionHistory) {
         const softDeletedProduct = await db.product.update({
@@ -258,7 +266,7 @@ export default defineEventHandler(async (event) => {
 
         return {
           success: true,
-          message: "Produk memiliki riwayat transaksi. Status diubah menjadi Non-Aktif.",
+          message: "Produk memiliki riwayat transaksi. Status diubah menjadi Non-Aktif. Klik hapus sekali lagi untuk menghapus permanen.",
           data: {
             ...softDeletedProduct,
             price: Number(softDeletedProduct.price),
@@ -268,7 +276,7 @@ export default defineEventHandler(async (event) => {
         };
       }
 
-      // 3. Jika belum ada riwayat transaksi -> Hard Delete permanen
+      // 4. Jika masih aktif dan belum ada riwayat transaksi -> Hard Delete permanen langsung
       const deletedProduct = await db.product.delete({ where: { id: productId } });
 
       if (deletedProduct.image) {

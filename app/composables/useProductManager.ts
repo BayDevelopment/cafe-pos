@@ -108,10 +108,10 @@ export const useProductManager = () => {
       const url = editingProduct.value ? `/api/products/${editingProduct.value.id}` : '/api/products'
       const method = editingProduct.value ? 'PUT' : 'POST'
 
-      await $fetch(url, { 
-        method, 
+      await $fetch(url, {
+        method,
         body: formData,
-        credentials: 'include' 
+        credentials: 'include'
       })
 
       closeForm()
@@ -123,12 +123,14 @@ export const useProductManager = () => {
     }
   }
 
+  // useProductManager.ts
   async function deleteProduct(product: any, refreshCallback?: Function) {
-    await $fetch(`/api/products/${product.id}`, { 
+    const res: any = await $fetch(`/api/products/${product.id}`, {
       method: 'DELETE',
       credentials: 'include'
     })
     if (refreshCallback) refreshCallback()
+    return res // { success, message, data }
   }
 
   return {
