@@ -67,16 +67,30 @@
       <div
         class="text-center space-y-1 border-b border-dashed border-[#2b1b12]/30 pb-3"
       >
+        <!-- LOGO TOKO -->
+        <img
+          v-if="shopSettings.logo_url"
+          :src="shopSettings.logo_url"
+          :alt="shopSettings.shop_name"
+          class="w-10 h-10 object-cover rounded-full mx-auto mb-1.5 border border-[#2b1b12]/15 print:grayscale print:border-black"
+        />
+
         <h1
           class="display text-xl font-bold text-[#2b1b12] uppercase tracking-wide"
         >
-          COFFEE SHOP POS
+          {{ shopSettings.shop_name || "COFFEE SHOP POS" }}
         </h1>
-        <p class="mono text-[0.68rem] text-[#8A7A68] print:text-black">
-          Jl. Kopi No. 12, Banten
+        <p
+          v-if="shopSettings.address"
+          class="mono text-[0.68rem] text-[#8A7A68] print:text-black"
+        >
+          {{ shopSettings.address }}
         </p>
-        <p class="mono text-[0.68rem] text-[#8A7A68] print:text-black">
-          Telp: 0812-3456-7890
+        <p
+          v-if="shopSettings.phone"
+          class="mono text-[0.68rem] text-[#8A7A68] print:text-black"
+        >
+          Telp: {{ shopSettings.phone }}
         </p>
       </div>
 
@@ -223,6 +237,14 @@ useHead({
 
 const route = useRoute();
 const token = useCookie("auth_token");
+
+// --- Pengaturan Toko (logo, nama, alamat, telepon) untuk header struk ---
+const { data: shopSettingsResponse } = await useFetch("/api/settings", {
+  key: "shop-settings",
+  headers: token.value ? { Authorization: `Bearer ${token.value}` } : {},
+});
+
+const shopSettings = computed(() => shopSettingsResponse.value?.data || {});
 
 const {
   data: response,

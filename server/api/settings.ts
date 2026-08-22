@@ -79,9 +79,12 @@ function toSnakeCaseResponse(settings: {
 export default defineEventHandler(async (event) => {
   const method = getMethod(event);
 
-  // Semua operasi di endpoint ini (baca & tulis) khusus Pemilik.
-  // requireOwner melempar 401/403 secara eksplisit kalau tidak sesuai — tidak ada jalur silent-pass.
-  await requireOwner(event);
+  // GET (baca pengaturan toko: nama, logo, alamat, dll) boleh diakses semua role
+  // yang sudah login (Kasir maupun Pemilik) — dibutuhkan untuk header struk & sidebar.
+  // Hanya operasi tulis (POST/PUT) yang dibatasi khusus Pemilik.
+  if (method === "POST" || method === "PUT") {
+    await requireOwner(event);
+  }
 
   // GET — Ambil pengaturan
   if (method === "GET") {
