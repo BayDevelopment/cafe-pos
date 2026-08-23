@@ -1,4 +1,4 @@
-<!-- app/pages/kasir/produk.vue -->
+<!-- app/pages/owner/karyawan.vue -->
 <template>
   <div
     class="p-4 md:p-10 max-w-6xl mx-auto space-y-6 md:space-y-8 font-['Poppins',sans-serif] relative"
@@ -33,23 +33,22 @@
           >
           <span
             class="label-xs text-[#8A7A68] text-[10px] font-medium tracking-wider"
-            >DATA PRODUK</span
+            >DATA KARYAWAN</span
           >
         </div>
         <h1 class="text-xl md:text-2xl text-[#2b1b12] font-bold tracking-tight">
-          Daftar Produk
+          Daftar Karyawan
         </h1>
         <p class="text-xs text-[#8A7A68] mt-0.5">
-          Kelola menu, harga, stok, dan kategori toko.
+          Kelola akun, jabatan, dan status aktif karyawan toko.
         </p>
       </div>
 
       <button
-        v-if="isOwner"
-        @click="openForm(null, categories)"
+        @click="openForm(null)"
         class="btn-stamp px-4 py-2.5 text-xs w-full md:w-auto flex items-center justify-center gap-2 font-semibold"
       >
-        <span class="text-sm font-bold">＋</span> TAMBAH PRODUK
+        <span class="text-sm font-bold">＋</span> TAMBAH KARYAWAN
       </button>
     </div>
 
@@ -58,12 +57,12 @@
       <div>
         <label
           class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider"
-          >Cari Produk</label
+          >Cari Karyawan</label
         >
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="Nama produk atau SKU..."
+          placeholder="Nama, email, kode, atau jabatan..."
           class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full focus:border-[#b8763c] outline-none font-normal"
         />
       </div>
@@ -71,17 +70,14 @@
       <div>
         <label
           class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider"
-          >Filter Kategori</label
+          >Filter Jabatan</label
         >
-        <select
-          v-model="selectedCategory"
-          class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none font-normal"
-        >
-          <option value="">Semua Kategori</option>
-          <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-            {{ cat.name }}
-          </option>
-        </select>
+        <input
+          v-model="selectedPosition"
+          type="text"
+          placeholder="Contoh: Barista"
+          class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full focus:border-[#b8763c] outline-none font-normal"
+        />
       </div>
 
       <div>
@@ -94,8 +90,8 @@
           class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none font-normal"
         >
           <option value="">Semua Status</option>
-          <option value="true">Aktif</option>
-          <option value="false">Nonaktif</option>
+          <option value="AKTIF">Aktif</option>
+          <option value="NONAKTIF">Nonaktif</option>
         </select>
       </div>
     </div>
@@ -103,57 +99,55 @@
     <!-- SKELETON LOADING -->
     <div v-if="pending" class="ticket-card overflow-hidden">
       <div class="p-6 text-center text-xs text-[#8A7A68]">
-        Memuat data produk...
+        Memuat data karyawan...
       </div>
     </div>
 
     <!-- ERROR STATE -->
     <div v-else-if="fetchError" class="ticket-card p-10 text-center space-y-3">
       <p class="text-xs text-[#9b3a2e] font-medium">
-        Gagal memuat data produk.
+        Gagal memuat data karyawan.
       </p>
       <button
-        @click="refreshProducts"
+        @click="refreshEmployees"
         class="btn-stamp inline-flex px-4 py-2 text-xs font-semibold"
       >
         COBA LAGI
       </button>
     </div>
 
-    <!-- TABEL PRODUK -->
+    <!-- TABEL KARYAWAN -->
     <div v-else class="ticket-card overflow-hidden">
       <div class="overflow-x-auto">
-        <table class="w-full text-sm min-w-[640px]">
+        <table class="w-full text-sm min-w-[720px]">
           <thead>
             <tr class="border-b border-[#2b1b12]/10 bg-[#f4eee3]">
               <th
                 class="text-xs font-semibold text-left text-[#8A7A68] px-5 py-3 uppercase tracking-wider"
               >
-                Info Produk
+                Karyawan
               </th>
               <th
                 class="text-xs font-semibold text-left text-[#8A7A68] px-5 py-3 uppercase tracking-wider"
               >
-                Kategori
+                Kontak
               </th>
               <th
                 class="text-xs font-semibold text-left text-[#8A7A68] px-5 py-3 uppercase tracking-wider"
               >
-                Harga
+                Jabatan
               </th>
               <th
                 class="text-xs font-semibold text-left text-[#8A7A68] px-5 py-3 uppercase tracking-wider"
               >
-                Stok
+                Bergabung
               </th>
               <th
                 class="text-xs font-semibold text-center text-[#8A7A68] px-5 py-3 uppercase tracking-wider"
               >
                 Status
               </th>
-              <!-- Kolom Aksi hanya ditampilkan untuk role PEMILIK, disembunyikan total untuk KASIR -->
               <th
-                v-if="isOwner"
                 class="text-xs font-semibold text-right text-[#8A7A68] px-5 py-3 uppercase tracking-wider"
               >
                 Aksi
@@ -162,77 +156,65 @@
           </thead>
           <tbody>
             <tr
-              v-for="product in products"
-              :key="product.id"
+              v-for="employee in employees"
+              :key="employee.id"
               class="border-b border-[#2b1b12]/5 last:border-0 hover:bg-[#f4eee3]/50 transition"
             >
               <td class="px-5 py-4">
                 <div class="flex items-center gap-3">
                   <img
-                    v-if="product.image"
-                    :src="product.image"
-                    :alt="product.name"
-                    class="w-10 h-10 object-cover rounded border border-[#2b1b12]/10"
+                    v-if="employee.photo"
+                    :src="employee.photo"
+                    :alt="employee.name"
+                    class="w-10 h-10 object-cover rounded-full border border-[#2b1b12]/10"
                   />
                   <div
                     v-else
-                    class="w-10 h-10 bg-[#2b1b12]/10 rounded flex items-center justify-center text-[#8A7A68] text-xs font-bold"
+                    class="w-10 h-10 bg-[#2b1b12]/10 rounded-full flex items-center justify-center text-[#8A7A68] text-xs font-bold"
                   >
-                    IMG
+                    {{ employee.name?.charAt(0).toUpperCase() || "?" }}
                   </div>
                   <div>
                     <p class="font-bold text-[#2b1b12] text-sm">
-                      {{ product.name }}
+                      {{ employee.name || "-" }}
                     </p>
-                    <p v-if="product.sku" class="text-[10px] text-[#8A7A68]">
-                      SKU: {{ product.sku }}
+                    <p class="text-[10px] text-[#8A7A68]">
+                      Kode: {{ employee.employeeCode }}
                     </p>
                   </div>
                 </div>
               </td>
+              <td class="px-5 py-4 text-xs text-[#2b1b12]">
+                <p class="font-medium">{{ employee.email || "-" }}</p>
+                <p class="text-[#8A7A68] mt-0.5">{{ employee.phone }}</p>
+              </td>
               <td class="px-5 py-4 text-xs text-[#2b1b12] font-medium">
-                {{ product.category?.name || "-" }}
+                {{ employee.position || "-" }}
               </td>
-              <td class="px-5 py-4 text-[#2b1b12] font-semibold text-sm">
-                {{ formatCurrency(product.price) }}
-                <div
-                  v-if="product.costPrice"
-                  class="text-[10px] text-[#8A7A68] font-normal"
-                >
-                  Modal: {{ formatCurrency(product.costPrice) }}
-                </div>
-              </td>
-              <td class="px-5 py-4">
-                <span
-                  :class="[
-                    'text-xs px-2.5 py-1 rounded font-semibold inline-block',
-                    product.stock > 5
-                      ? 'bg-[#2f7a46]/10 text-[#2f7a46]'
-                      : 'bg-[#9b3a2e]/10 text-[#9b3a2e]',
-                  ]"
-                >
-                  {{ product.stock }} Pcs
-                </span>
+              <td class="px-5 py-4 text-xs text-[#2b1b12] font-medium">
+                {{ formatDate(employee.joinDate) }}
               </td>
               <td class="px-5 py-4 text-center">
-                <span
+                <button
+                  type="button"
+                  :disabled="togglingId === employee.id"
+                  title="Klik untuk ubah status"
+                  @click="toggleStatus(employee)"
                   :class="[
-                    'text-[10px] px-2 py-0.5 rounded font-semibold inline-block',
-                    product.isActive
-                      ? 'bg-[#2f7a46]/10 text-[#2f7a46]'
-                      : 'bg-[#8A7A68]/10 text-[#8A7A68]',
+                    'text-[10px] px-2 py-0.5 rounded font-semibold inline-block transition disabled:opacity-50',
+                    employee.status === 'AKTIF'
+                      ? 'bg-[#2f7a46]/10 text-[#2f7a46] hover:bg-[#2f7a46]/20'
+                      : 'bg-[#8A7A68]/10 text-[#8A7A68] hover:bg-[#8A7A68]/20',
                   ]"
                 >
-                  {{ product.isActive ? "AKTIF" : "NONAKTIF" }}
-                </span>
+                  {{ employee.status === "AKTIF" ? "AKTIF" : "NONAKTIF" }}
+                </button>
               </td>
-              <!-- Kolom Aksi hanya ditampilkan untuk role PEMILIK, disembunyikan total untuk KASIR -->
-              <td v-if="isOwner" class="px-5 py-4">
+              <td class="px-5 py-4">
                 <div class="flex items-center justify-end gap-2">
                   <button
-                    v-if="isOwner"
-                    @click="openForm(product, categories)"
-                    title="Edit Product"
+                    @click="openForm(employee)"
+                    title="Edit Karyawan"
                     class="p-2 rounded-lg bg-[#b8763c]/10 text-[#b8763c] hover:bg-[#b8763c] hover:text-[#faf6ee] active:scale-95 transition-all duration-150"
                   >
                     <svg
@@ -254,11 +236,9 @@
                     </svg>
                   </button>
 
-                  <!-- Tombol Hapus: HANYA MUNCUL JIKA ROLE ADALAH PEMILIK -->
                   <button
-                    v-if="isOwner"
-                    @click="confirmDelete(product)"
-                    title="Hapus Product"
+                    @click="confirmDelete(employee)"
+                    title="Hapus Karyawan"
                     class="p-2 rounded-lg bg-[#9b3a2e]/10 text-[#9b3a2e] hover:bg-[#9b3a2e] hover:text-[#faf6ee] active:scale-95 transition-all duration-150"
                   >
                     <svg
@@ -282,12 +262,9 @@
                 </div>
               </td>
             </tr>
-            <tr v-if="products.length === 0">
-              <td
-                :colspan="isOwner ? 6 : 5"
-                class="p-10 text-center text-xs text-[#8A7A68]"
-              >
-                Produk tidak ditemukan.
+            <tr v-if="employees.length === 0">
+              <td colspan="6" class="p-10 text-center text-xs text-[#8A7A68]">
+                Karyawan tidak ditemukan.
               </td>
             </tr>
           </tbody>
@@ -311,7 +288,7 @@
           <strong class="text-[#2b1b12] font-semibold">{{
             pagination.totalItems
           }}</strong>
-          Produk)
+          Karyawan)
         </span>
         <div class="flex items-center gap-2">
           <button
@@ -332,7 +309,7 @@
       </div>
     </div>
 
-    <!-- MODAL FORM -->
+    <!-- MODAL FORM TAMBAH / EDIT -->
     <Teleport to="body">
       <div
         v-if="isFormOpen"
@@ -344,8 +321,11 @@
         >
           <div>
             <h2 class="text-lg text-[#2b1b12] font-bold">
-              {{ editingProduct ? "Edit Produk" : "Tambah Produk Baru" }}
+              {{ editingEmployee ? "Edit Karyawan" : "Tambah Karyawan Baru" }}
             </h2>
+            <p v-if="editingEmployee" class="text-[10px] text-[#8A7A68] mt-0.5">
+              Kode Karyawan: {{ editingEmployee.employeeCode }}
+            </p>
           </div>
 
           <div
@@ -355,38 +335,17 @@
             <span class="font-bold uppercase">Perhatian:</span> {{ formError }}
           </div>
 
-          <form
-            class="space-y-4"
-            @submit.prevent="handleSaveProduct"
-            novalidate
-          >
+          <form class="space-y-4" @submit.prevent="handleSaveEmployee" novalidate>
             <div>
               <label
                 class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider"
-                >Kategori *</label
-              >
-              <select
-                v-model.number="form.categoryId"
-                required
-                class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal"
-              >
-                <option :value="0" disabled>-- Pilih Kategori --</option>
-                <option v-for="cat in categories" :key="cat.id" :value="cat.id">
-                  {{ cat.name }}
-                </option>
-              </select>
-            </div>
-
-            <div>
-              <label
-                class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider"
-                >Nama Produk *</label
+                >Nama Lengkap *</label
               >
               <input
                 v-model.trim="form.name"
                 type="text"
                 required
-                placeholder="Contoh: Kopi Susu"
+                placeholder="Contoh: Budi Santoso"
                 class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal"
               />
             </div>
@@ -394,12 +353,13 @@
             <div>
               <label
                 class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider"
-                >SKU (Opsional)</label
+                >Email *</label
               >
               <input
-                v-model.trim="form.sku"
-                type="text"
-                placeholder="Contoh: KOP-01"
+                v-model.trim="form.email"
+                type="email"
+                required
+                placeholder="budi@kedaikopi.com"
                 class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal"
               />
             </div>
@@ -407,7 +367,56 @@
             <div>
               <label
                 class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider"
-                >File Gambar Produk (Opsional)</label
+                >{{
+                  editingEmployee
+                    ? "Password Baru (Opsional)"
+                    : "Password *"
+                }}</label
+              >
+              <input
+                v-model="form.password"
+                type="password"
+                :required="!editingEmployee"
+                :placeholder="
+                  editingEmployee
+                    ? 'Kosongkan jika tidak ingin mengganti'
+                    : 'Minimal 6 karakter'
+                "
+                class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal"
+              />
+            </div>
+
+            <div>
+              <label
+                class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider"
+                >Nomor Telepon *</label
+              >
+              <input
+                v-model.trim="form.phone"
+                type="text"
+                required
+                placeholder="Contoh: 0812xxxxxxx"
+                class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal"
+              />
+            </div>
+
+            <div>
+              <label
+                class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider"
+                >Alamat (Opsional)</label
+              >
+              <textarea
+                v-model.trim="form.address"
+                rows="2"
+                placeholder="Alamat domisili karyawan"
+                class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal resize-none"
+              ></textarea>
+            </div>
+
+            <div>
+              <label
+                class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider"
+                >Foto Karyawan (Opsional)</label
               >
               <input
                 type="file"
@@ -420,11 +429,18 @@
                 <img
                   :src="imagePreview"
                   alt="Preview"
-                  class="w-12 h-12 object-cover rounded border border-[#2b1b12]/20"
+                  class="w-12 h-12 object-cover rounded-full border border-[#2b1b12]/20"
                 />
                 <span class="text-[10px] text-[#8A7A68] font-normal"
-                  >Pratinjau Gambar</span
+                  >Pratinjau Foto</span
                 >
+                <button
+                  type="button"
+                  class="text-[10px] text-[#9b3a2e] font-semibold hover:underline"
+                  @click="clearPhoto"
+                >
+                  Hapus Foto
+                </button>
               </div>
             </div>
 
@@ -432,43 +448,12 @@
               <div>
                 <label
                   class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider"
-                  >Harga Jual (Rp) *</label
+                  >Jabatan (Opsional)</label
                 >
                 <input
-                  v-model.number="form.price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  required
-                  class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal"
-                />
-              </div>
-              <div>
-                <label
-                  class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider"
-                  >Harga Modal (Rp)</label
-                >
-                <input
-                  v-model.number="form.costPrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal"
-                />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label
-                  class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider"
-                  >Stok (Pcs) *</label
-                >
-                <input
-                  v-model.number="form.stock"
-                  type="number"
-                  min="0"
-                  required
+                  v-model.trim="form.position"
+                  type="text"
+                  placeholder="Contoh: Barista"
                   class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal"
                 />
               </div>
@@ -477,16 +462,38 @@
                   class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider"
                   >Status</label
                 >
-                <label class="flex items-center gap-2 mt-2.5 cursor-pointer">
-                  <input
-                    v-model="form.isActive"
-                    type="checkbox"
-                    class="w-4 h-4 accent-[#2b1b12]"
-                  />
-                  <span class="text-xs text-[#2b1b12] font-semibold"
-                    >Aktif dijual</span
-                  >
-                </label>
+                <select
+                  v-model="form.status"
+                  class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal"
+                >
+                  <option value="AKTIF">Aktif</option>
+                  <option value="NONAKTIF">Nonaktif</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label
+                  class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider"
+                  >Tanggal Lahir (Opsional)</label
+                >
+                <input
+                  v-model="form.birthDate"
+                  type="date"
+                  class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal"
+                />
+              </div>
+              <div>
+                <label
+                  class="block text-xs font-semibold text-[#8A7A68] mb-1 uppercase tracking-wider"
+                  >Tanggal Bergabung</label
+                >
+                <input
+                  v-model="form.joinDate"
+                  type="date"
+                  class="field text-sm p-2.5 bg-[#f4eee3] rounded border border-[#2b1b12]/20 w-full outline-none focus:border-[#b8763c] font-normal"
+                />
               </div>
             </div>
 
@@ -499,9 +506,9 @@
                 {{
                   isSaving
                     ? "MENYIMPAN…"
-                    : editingProduct
+                    : editingEmployee
                       ? "SIMPAN PERUBAHAN"
-                      : "TAMBAH PRODUK"
+                      : "TAMBAH KARYAWAN"
                 }}
               </button>
               <button
@@ -517,10 +524,10 @@
       </div>
     </Teleport>
 
-    <!-- MODAL CONFIRM DELETE (CUSTOM) -->
+    <!-- MODAL CONFIRM DELETE -->
     <Teleport to="body">
       <div
-        v-if="productToDelete && isOwner"
+        v-if="employeeToDelete"
         class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
         @click.self="cancelDelete"
       >
@@ -545,12 +552,17 @@
                 <line x1="14" y1="11" x2="14" y2="17"></line>
               </svg>
             </div>
-            <h3 class="text-lg text-[#2b1b12] font-bold">Hapus Produk?</h3>
+            <h3 class="text-lg text-[#2b1b12] font-bold">Hapus Karyawan?</h3>
             <p class="text-xs text-[#8A7A68]">
-              Apakah Anda yakin ingin menghapus produk
+              Apakah Anda yakin ingin menghapus akun karyawan
               <span class="font-bold text-[#2b1b12]"
-                >"{{ productToDelete.name }}"</span
-              >? Tindakan ini tidak dapat dibatalkan.
+                >"{{ employeeToDelete.name }}"</span
+              >? Akun login karyawan ini juga akan terhapus permanen dan
+              tindakan ini tidak dapat dibatalkan.
+            </p>
+            <p class="text-[10px] text-[#8A7A68]">
+              Tips: gunakan tombol status "NONAKTIF" pada tabel jika hanya
+              ingin menonaktifkan sementara tanpa menghapus akun.
             </p>
           </div>
 
@@ -569,7 +581,7 @@
               :disabled="isDeleting"
               @click="executeDelete"
             >
-              {{ isDeleting ? "MENGHAPUS..." : "HAPUS" }}
+              {{ isDeleting ? "MENGHAPUS..." : "HAPUS PERMANEN" }}
             </button>
           </div>
         </div>
@@ -579,41 +591,33 @@
 </template>
 
 <script setup>
+definePageMeta({
+  middleware: ["auth"],
+});
+
 const { user } = useAuth();
 
 useHead({
-  title: 'Daftar Produk - Kasir'
-})
-
-
-// Cek apakah role user yang sedang login adalah PEMILIK
-const isOwner = computed(() => {
-  return user.value?.role?.toUpperCase() === "PEMILIK";
+  title: "Data Karyawan - Pemilik",
 });
 
-const {
-  form,
-  isFormOpen,
-  isSaving,
-  editingProduct,
-  formError,
-  imagePreview,
-  handleFileChange,
-  saveProduct,
-  deleteProduct,
-  openForm,
-  closeForm,
-} = useProductManager();
+// Guard tambahan di level halaman: hanya PEMILIK yang boleh mengakses.
+// (Selain proteksi di sidebar dan di server/api/karyawan/* via requireOwner)
+watchEffect(() => {
+  if (user.value && user.value.role?.toUpperCase() !== "PEMILIK") {
+    navigateTo("/kasir/dashboard");
+  }
+});
 
-// State Filter & Pagination
+// --- State Filter & Pagination ---
 const currentPage = ref(1);
 const limit = ref(10);
 const searchQuery = ref("");
-const selectedCategory = ref("");
 const selectedStatus = ref("");
+const selectedPosition = ref("");
 
-// Debouncing Search (Mencegah Spam API saat Mengetik)
 const debouncedSearch = ref("");
+const debouncedPosition = ref("");
 let searchTimeout = null;
 watch(searchQuery, (newVal) => {
   clearTimeout(searchTimeout);
@@ -623,27 +627,36 @@ watch(searchQuery, (newVal) => {
   }, 400);
 });
 
-watch([selectedCategory, selectedStatus], () => {
+let positionTimeout = null;
+watch(selectedPosition, (newVal) => {
+  clearTimeout(positionTimeout);
+  positionTimeout = setTimeout(() => {
+    debouncedPosition.value = newVal;
+    currentPage.value = 1;
+  }, 400);
+});
+
+watch(selectedStatus, () => {
   currentPage.value = 1;
 });
 
-// Fetch Data dari API
+// --- Fetch Data Karyawan ---
 const {
   data: response,
   pending,
   error: fetchError,
-  refresh: refreshProducts,
-} = await useFetch("/api/products", {
+  refresh: refreshEmployees,
+} = await useFetch("/api/karyawan", {
   query: computed(() => ({
     page: currentPage.value,
     limit: limit.value,
     search: debouncedSearch.value,
-    category: selectedCategory.value,
     status: selectedStatus.value,
+    position: debouncedPosition.value,
   })),
 });
 
-const products = computed(() => response.value?.data || []);
+const employees = computed(() => response.value?.data || []);
 const pagination = computed(
   () =>
     response.value?.pagination || {
@@ -653,18 +666,25 @@ const pagination = computed(
     },
 );
 
-// Fetch Category Options
-const { data: categoryResponse } = await useFetch("/api/categories");
-const categories = computed(() => categoryResponse.value?.data || []);
-
-function formatCurrency(val) {
-  if (val === null || val === undefined) return "Rp 0";
-  return "Rp " + Number(val).toLocaleString("id-ID");
+function formatDate(value) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
-// --- Alert / Toast State (Custom, menggantikan SweetAlert2) ---
+function toDateInputValue(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
+}
+
+// --- Alert / Toast State ---
 const alertMessage = ref("");
-const alertType = ref("success"); // 'success' | 'error'
+const alertType = ref("success");
 const showAlert = ref(false);
 
 function triggerAlert(msg, type = "success") {
@@ -676,59 +696,209 @@ function triggerAlert(msg, type = "success") {
   }, 3000);
 }
 
-// --- Simpan Produk (Tambah / Edit) dengan Toast Custom ---
-async function handleSaveProduct() {
-  const wasEditing = !!editingProduct.value;
+// --- Form Tambah / Edit ---
+const isFormOpen = ref(false);
+const isSaving = ref(false);
+const editingEmployee = ref(null);
+const formError = ref("");
+const imagePreview = ref(null);
+const selectedFile = ref(null);
+const photoRemoved = ref(false);
 
-  await saveProduct(refreshProducts);
-
-  // Jika tidak ada formError setelah proses, anggap berhasil
-  if (!formError.value) {
-    triggerAlert(
-      wasEditing
-        ? "Produk berhasil diperbarui!"
-        : "Produk berhasil ditambahkan!",
-      "success",
-    );
-  }
+function defaultForm() {
+  return {
+    name: "",
+    email: "",
+    password: "",
+    phone: "",
+    address: "",
+    position: "",
+    status: "AKTIF",
+    birthDate: "",
+    joinDate: toDateInputValue(new Date()),
+  };
 }
 
-// --- Konfirmasi Hapus Produk (Modal Custom) dengan Toast Custom ---
-const productToDelete = ref(null);
-const isDeleting = ref(false);
+const form = reactive(defaultForm());
 
-function confirmDelete(product) {
-  // Keamanan tambahan di frontend: Jika bukan pemilik, hentikan fungsi
-  if (!isOwner.value) {
-    triggerAlert(
-      "Akses ditolak. Hanya Pemilik yang dapat menghapus produk.",
-      "error",
-    );
+function openForm(employee) {
+  formError.value = "";
+  selectedFile.value = null;
+  photoRemoved.value = false;
+
+  if (employee) {
+    editingEmployee.value = employee;
+    Object.assign(form, {
+      name: employee.name || "",
+      email: employee.email || "",
+      password: "",
+      phone: employee.phone || "",
+      address: employee.address || "",
+      position: employee.position || "",
+      status: employee.status || "AKTIF",
+      birthDate: toDateInputValue(employee.birthDate),
+      joinDate: toDateInputValue(employee.joinDate),
+    });
+    imagePreview.value = employee.photo || null;
+  } else {
+    editingEmployee.value = null;
+    Object.assign(form, defaultForm());
+    imagePreview.value = null;
+  }
+
+  isFormOpen.value = true;
+}
+
+function closeForm() {
+  isFormOpen.value = false;
+  editingEmployee.value = null;
+  formError.value = "";
+  selectedFile.value = null;
+  photoRemoved.value = false;
+}
+
+function handleFileChange(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  selectedFile.value = file;
+  photoRemoved.value = false;
+  imagePreview.value = URL.createObjectURL(file);
+}
+
+function clearPhoto() {
+  selectedFile.value = null;
+  imagePreview.value = null;
+  photoRemoved.value = true;
+  const fileInput = document.querySelector('input[type="file"]');
+  if (fileInput) fileInput.value = "";
+}
+
+async function handleSaveEmployee() {
+  formError.value = "";
+
+  if (!form.name || !form.email || !form.phone) {
+    formError.value = "Nama, email, dan nomor telepon wajib diisi.";
+    return;
+  }
+  if (!editingEmployee.value && (!form.password || form.password.length < 6)) {
+    formError.value = "Password wajib diisi minimal 6 karakter untuk karyawan baru.";
     return;
   }
 
+  isSaving.value = true;
+
+  try {
+    const formData = new FormData();
+    formData.append("name", form.name);
+    formData.append("email", form.email);
+    if (form.password) formData.append("password", form.password);
+    formData.append("phone", form.phone);
+    formData.append("address", form.address || "");
+    formData.append("position", form.position || "");
+    formData.append("status", form.status);
+    formData.append("birthDate", form.birthDate || "");
+    formData.append("joinDate", form.joinDate || "");
+
+    if (selectedFile.value) {
+      formData.append("photo", selectedFile.value);
+    } else if (photoRemoved.value) {
+      formData.append("removePhoto", "true");
+    }
+
+    const wasEditing = !!editingEmployee.value;
+
+    if (wasEditing) {
+      await $fetch(`/api/karyawan/${editingEmployee.value.id}`, {
+        method: "PUT",
+        body: formData,
+      });
+    } else {
+      await $fetch("/api/karyawan", {
+        method: "POST",
+        body: formData,
+      });
+    }
+
+    await refreshEmployees();
+    closeForm();
+    triggerAlert(
+      wasEditing
+        ? "Data karyawan berhasil diperbarui!"
+        : "Karyawan baru berhasil ditambahkan!",
+      "success",
+    );
+  } catch (err) {
+    formError.value =
+      err?.data?.statusMessage || err?.data?.message || "Gagal menyimpan data karyawan.";
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+// --- Toggle Status Cepat (AKTIF <-> NONAKTIF) ---
+const togglingId = ref(null);
+
+async function toggleStatus(employee) {
+  if (togglingId.value) return;
+
+  const nextStatus = employee.status === "AKTIF" ? "NONAKTIF" : "AKTIF";
+  togglingId.value = employee.id;
+
+  try {
+    const formData = new FormData();
+    formData.append("status", nextStatus);
+
+    await $fetch(`/api/karyawan/${employee.id}`, {
+      method: "PUT",
+      body: formData,
+    });
+
+    await refreshEmployees();
+    triggerAlert(
+      `Status "${employee.name}" diubah menjadi ${nextStatus === "AKTIF" ? "Aktif" : "Nonaktif"}.`,
+      "success",
+    );
+  } catch (err) {
+    triggerAlert(
+      err?.data?.statusMessage || "Gagal mengubah status karyawan.",
+      "error",
+    );
+  } finally {
+    togglingId.value = null;
+  }
+}
+
+// --- Konfirmasi Hapus Permanen ---
+const employeeToDelete = ref(null);
+const isDeleting = ref(false);
+
+function confirmDelete(employee) {
   if (isDeleting.value) return;
-  productToDelete.value = product;
+  employeeToDelete.value = employee;
 }
 
 function cancelDelete() {
   if (isDeleting.value) return;
-  productToDelete.value = null;
+  employeeToDelete.value = null;
 }
 
 async function executeDelete() {
-  if (!isOwner.value || !productToDelete.value || isDeleting.value) return;
+  if (!employeeToDelete.value || isDeleting.value) return;
 
-  const product = productToDelete.value;
+  const employee = employeeToDelete.value;
   isDeleting.value = true;
 
   try {
-    await deleteProduct(product, refreshProducts);
-    productToDelete.value = null;
-    triggerAlert(`Produk "${product.name}" berhasil dihapus!`, "success");
+    await $fetch(`/api/karyawan/${employee.id}`, {
+      method: "DELETE",
+    });
+    employeeToDelete.value = null;
+    await refreshEmployees();
+    triggerAlert(`Karyawan "${employee.name}" berhasil dihapus!`, "success");
   } catch (err) {
     triggerAlert(
-      err?.data?.statusMessage || "Gagal menghapus produk.",
+      err?.data?.statusMessage || "Gagal menghapus karyawan.",
       "error",
     );
   } finally {
@@ -738,22 +908,11 @@ async function executeDelete() {
 </script>
 
 <style scoped>
-.btn-cancel {
-  background: transparent;
-  border: 1.5px solid rgba(43, 27, 18, 0.2);
-  color: #8a7a68;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.btn-cancel:hover {
-  background: #9b3a2e;
-  border-color: #9b3a2e;
-  color: #faf6ee;
-  transform: translateY(-1px);
+.label-xs {
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
 }
 
 .ticket-card {
@@ -767,41 +926,27 @@ async function executeDelete() {
 .btn-stamp {
   background: #2b1b12;
   color: #faf6ee;
-  padding: 0.85rem 1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   border-radius: 4px;
+  border: 1.5px solid #2b1b12;
   cursor: pointer;
-  transition: transform 0.12s ease;
+  transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
-.btn-stamp:hover {
+.btn-stamp:hover:not(:disabled) {
   background: #b8763c;
+  border-color: #b8763c;
+  transform: rotate(-0.6deg) scale(1.01);
 }
 
-.display {
-  font-family: "Space Grotesk", sans-serif;
+.btn-stamp:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
-.label-xs {
-  font-size: 0.66rem;
-  text-transform: uppercase;
-  letter-spacing: 0.11em;
-}
-
-/* SKELETON LOADING */
-.skeleton {
-  background: linear-gradient(90deg, #ede4d3 25%, #f4eee3 37%, #ede4d3 63%);
-  background-size: 400% 100%;
-  animation: skeleton-shimmer 1.4s ease infinite;
-}
-
-@keyframes skeleton-shimmer {
-  0% {
-    background-position: 100% 50%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
+.btn-cancel:hover {
+  background: #2b1b12;
 }
 
 /* TOAST TRANSITION */

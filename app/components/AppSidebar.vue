@@ -181,6 +181,8 @@ const menuGroups = computed(() => {
         { label: 'Daftar Produk', to: role.value === 'PEMILIK' ? '/owner/product' : '/kasir/product', icon: resolveComponent('LucidePackage') },
         { label: 'Kategori Menu', to: role.value === 'PEMILIK' ? '/owner/category' : '/kasir/category', icon: resolveComponent('LucideTags') },
         { label: 'Riwayat Transaksi', to: role.value === 'PEMILIK' ? '/owner/transaksi' : '/kasir/transaksi', icon: resolveComponent('LucideReceiptText') },
+        // Hanya PEMILIK yang boleh mengakses data karyawan
+        { label: 'Data Karyawan', to: '/owner/karyawan', icon: resolveComponent('LucideUsers'), roles: ['PEMILIK'] },
       ],
     },
   ]
@@ -195,7 +197,15 @@ const menuGroups = computed(() => {
     })
   }
 
+  // Saring item yang punya batasan `roles` sesuai role user saat ini,
+  // lalu buang grup yang jadi kosong setelah difilter (mis. jika suatu saat
+  // seluruh isi "Manajemen Kedai" dibatasi PEMILIK, label grup tak nongol kosongan untuk KASIR).
   return groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item: any) => !item.roles || item.roles.includes(role.value)),
+    }))
+    .filter((group) => group.items.length > 0)
 })
 
 const activeTo = computed<string | null>(() => {
