@@ -71,7 +71,8 @@ export default defineEventHandler(async (event) => {
     let passwordChanged = false;
     if (newPassword) {
       const rateLimitKey = `update-profile-password:${userId}`;
-      checkRateLimit(rateLimitKey, { maxAttempts: 5, windowMs: 60 * 1000 });
+      // 👉 PENTING: wajib di-await, checkRateLimit sekarang async (Redis call).
+      await checkRateLimit(rateLimitKey, { maxAttempts: 5, windowMs: 60 * 1000 });
 
       if (!oldPassword) {
         throw createError({ statusCode: 400, message: "Password lama wajib diisi untuk mengganti password." });
@@ -93,7 +94,8 @@ export default defineEventHandler(async (event) => {
       updateData.password = await bcrypt.hash(newPassword, 12);
       updateData.passwordChangedAt = new Date();
       passwordChanged = true;
-      resetRateLimit(rateLimitKey);
+      // 👉 PENTING: wajib di-await juga.
+      await resetRateLimit(rateLimitKey);
     }
 
     const updatedUser = await db.user.update({

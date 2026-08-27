@@ -39,7 +39,10 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Email atau kata sandi tidak valid.' })
   }
 
-  rateLimitByIpAndIdentifier(event, cleanEmail, 'login', { maxAttempts: 5, windowMs: 60 * 1000 })
+  // 👉 PENTING: wajib di-await, checkRateLimit sekarang async (Redis call).
+  // Tanpa await, request langsung lanjut tanpa nunggu hasil pengecekan limit,
+  // jadi proteksi brute-force ini efektif tidak berjalan.
+  await rateLimitByIpAndIdentifier(event, cleanEmail, 'login', { maxAttempts: 5, windowMs: 60 * 1000 })
 
   const GENERIC_AUTH_ERROR = 'Email atau kata sandi salah.'
 
@@ -49,7 +52,6 @@ export default defineEventHandler(async (event) => {
       where: { email: cleanEmail },
     })
 
-    
     const isBcryptHash = user
       ? user.password.startsWith('$2a$') || user.password.startsWith('$2b$') || user.password.startsWith('$2y$')
       : false
@@ -94,7 +96,8 @@ export default defineEventHandler(async (event) => {
     })
 
     // Login berhasil — bersihkan counter rate limit supaya tidak ikut menghitung ke sesi berikutnya.
-    resetRateLimitByIpAndIdentifier(event, cleanEmail, 'login')
+    // 👉 PENTING: juga wajib di-await.
+    await resetRateLimitByIpAndIdentifier(event, cleanEmail, 'login')
 
     return {
       success: true,
