@@ -3,7 +3,6 @@ definePageMeta({
   middleware: ['owner-only']
 })
 
-
 useHead({
   title: 'Pengaturan - POS Owner'
 })
@@ -24,7 +23,6 @@ const LIMITS = {
 }
 const PHONE_REGEX = /^[0-9+()\-\s]{6,20}$/
 
-// Konsisten pakai snake_case, sesuai kontrak backend (data.shop_name, data.logo_url, dst)
 const shop = reactive({
   shop_name: '',
   description: '',
@@ -33,7 +31,6 @@ const shop = reactive({
   logo_url: ''
 })
 
-// Shared state yang sama dipakai AppSidebar.vue — supaya update instan tanpa reload
 const globalSettings = useState('global-shop-settings', () => ({
   shopName: 'KEDAI KOPI',
   logoUrl: null
@@ -55,8 +52,8 @@ watchEffect(() => {
     shop.phone = data.phone || ''
     shop.logo_url = data.logo_url || ''
 
-    if (data.logo_url && !logoPreview.value) {
-      logoPreview.value = data.logo_url
+    if (!logoFile.value) {
+      logoPreview.value = data.logo_url || null
     }
 
     globalSettings.value.shopName = data.shop_name || 'KEDAI KOPI'
@@ -65,7 +62,7 @@ watchEffect(() => {
 })
 
 function onLogoSelected(event) {
-  const file = event.target.files[0]
+  const file = event.target.files?.[0]
   if (!file) return
 
   if (file.size > LIMITS.maxImageSize) {
@@ -81,6 +78,12 @@ function onLogoSelected(event) {
 
   logoFile.value = file
   logoPreview.value = URL.createObjectURL(file)
+}
+
+function cancelNewLogo() {
+  logoFile.value = null
+  logoPreview.value = shop.logo_url || null
+  if (fileInput.value) fileInput.value.value = ''
 }
 
 function validateForm() {
@@ -141,13 +144,13 @@ async function saveSettings() {
       showNotification('Identitas toko & struk berhasil diperbarui!', 'success')
 
       globalSettings.value.shopName = res.data.shop_name
-      if (logoFile.value) {
-        globalSettings.value.logoUrl = res.data.logo_url
-      }
+      globalSettings.value.logoUrl = res.data.logo_url
 
       logoFile.value = null
+      logoPreview.value = res.data.logo_url
       if (fileInput.value) fileInput.value.value = ''
-      refresh()
+
+      await refresh()
     }
   } catch (error) {
     const msg = error?.data?.message || error?.data?.statusMessage || 'Gagal menyimpan pengaturan.'
@@ -192,61 +195,77 @@ function showNotification(message, type) {
     <!-- KONTROL UTAMA (FORM CARD) -->
     <section class="ticket-card p-6 sm:p-8 space-y-6 bg-[#faf6ee]">
 
-      <!-- BAGIAN LOGO TOKO (Opsional jika Anda menangani file upload secara terpisah) -->
+      <!-- BAGIAN LOGO TOKO WITH ENHANCED PREVIEW -->
       <div class="pb-6 border-b border-[#1c1410]/10 flex flex-col sm:flex-row items-start sm:items-center gap-6">
-        <div
-          class="w-24 h-24 rounded-xl bg-[#1c1410]/5 border-2 border-dashed border-[#1c1410]/20 flex items-center justify-center overflow-hidden relative shadow-inner flex-shrink-0">
-          <img v-if="logoPreview" :src="logoPreview" class="w-full h-full object-cover" />
-          <span v-else class="mono text-[0.65rem] text-[#1c1410]/60 text-center p-2 font-medium">Belum ada logo</span>
+        <div class="relative group">
+          <div
+            class="w-28 h-28 rounded-2xl bg-[#1c1410]/5 border-2 border-dashed border-[#1c1410]/20 flex items-center justify-center overflow-hidden relative shadow-inner flex-shrink-0 transition-all group-hover:border-[#c9793f]">
+            <img v-if="logoPreview" :src="logoPreview" class="w-full h-full object-cover" />
+            <div v-else class="flex flex-col items-center justify-center p-2 text-center">
+              <span class="mono text-[0.65rem] text-[#1c1410]/60 font-medium">Belum Ada Logo</span>
+            </div>
+          </div>
+          
+          <!-- Indikator Badge Status Gambar -->
+          <span v-if="logoFile" class="absolute -top-2 -right-2 bg-[#c9793f] text-white mono text-[0.6rem] px-2 py-0.5 rounded-full font-bold shadow">
+            BARU
+          </span>
         </div>
-        <div class="space-y-2">
-          <h2 class="display text-base text-[#1c1410] font-bold">Logo Toko / Bisnis</h2>
-          <p class="mono text-xs text-[#1c1410]/60">Digunakan untuk Branding Login & Header Struk Thermal. Maks. 1 MB
-            (JPG/PNG/WEBP).</p>
+
+        <div class="space-y-3">
           <div>
+            <h2 class="display text-base text-[#1c1410] font-bold">Logo Toko / Bisnis</h2>
+            <p class="mono text-xs text-[#1c1410]/60 mt-0.5">
+              Digunakan untuk Branding Login & Header Struk Thermal. Maksimal 1 MB (JPG, PNG, WEBP).
+            </p>
+          </div>
+          
+          <div class="flex items-center gap-2 flex-wrap">
             <button type="button" @click="fileInput?.click()"
-              class="btn-stamp mono px-4 py-2.5 text-xs inline-flex items-center gap-2">
-              Unggah Logo Baru
+              class="btn-stamp mono px-4 py-2 text-xs inline-flex items-center gap-2">
+              {{ logoPreview ? 'Ganti Logo' : 'Unggah Logo Baru' }}
             </button>
+            
+            <button v-if="logoFile" type="button" @click="cancelNewLogo"
+              class="mono px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50 border border-rose-200 rounded-xl transition-all">
+              Batal
+            </button>
+            
             <input type="file" ref="fileInput" class="hidden" accept="image/png,image/jpeg,image/webp"
               @change="onLogoSelected" />
           </div>
+
+          <!-- Keterangan Status Preview -->
+          <p v-if="logoFile" class="mono text-[0.7rem] text-[#c9793f] font-semibold">
+            * File dipilih: {{ logoFile.name }}. Klik "Simpan Pengaturan Toko" untuk menerapkan.
+          </p>
         </div>
       </div>
 
       <!-- FORM PENGATURAN INFORMASI -->
       <div class="space-y-5 mono text-xs">
-
-        <!-- Field: shopName -->
         <div class="space-y-1.5">
-          <label class="block text-[#1c1410]/70 font-semibold uppercase tracking-wider text-[0.7rem]">Nama Toko (Login &
-            Header Struk)</label>
-           <input v-model="shop.shop_name" type="text" :maxlength="LIMITS.shopName" placeholder="Contoh: Kopi Senja Utama"
+          <label class="block text-[#1c1410]/70 font-semibold uppercase tracking-wider text-[0.7rem]">Nama Toko (Login & Header Struk)</label>
+          <input v-model="shop.shop_name" type="text" :maxlength="LIMITS.shopName" placeholder="Contoh: Kopi Senja Utama"
             class="w-full px-4 py-3 rounded-xl bg-white/60 text-[#1c1410] font-semibold border border-[#1c1410]/15 focus:outline-none focus:border-[#c9793f] transition-all" />
         </div>
 
-        <!-- Field: description (Baru ditambahkan sesuai Schema) -->
         <div class="space-y-1.5">
-          <label class="block text-[#1c1410]/70 font-semibold uppercase tracking-wider text-[0.7rem]">Deskripsi Singkat
-            / Slogan</label>
+          <label class="block text-[#1c1410]/70 font-semibold uppercase tracking-wider text-[0.7rem]">Deskripsi Singkat / Slogan</label>
           <input v-model="shop.description" type="text" :maxlength="LIMITS.description"
             placeholder="Contoh: Menyajikan kopi dengan hati dan rasa"
             class="w-full px-4 py-3 rounded-xl bg-white/60 text-[#1c1410] font-semibold border border-[#1c1410]/15 focus:outline-none focus:border-[#c9793f] transition-all" />
         </div>
 
-        <!-- Field: address -->
         <div class="space-y-1.5">
-          <label class="block text-[#1c1410]/70 font-semibold uppercase tracking-wider text-[0.7rem]">Alamat Lengkap
-            (Header Struk)</label>
+          <label class="block text-[#1c1410]/70 font-semibold uppercase tracking-wider text-[0.7rem]">Alamat Lengkap (Header Struk)</label>
           <textarea v-model="shop.address" rows="3" :maxlength="LIMITS.address"
             placeholder="Contoh: Jl. Raya Pandeglang No. 45, Banten"
             class="w-full px-4 py-3 rounded-xl bg-white/60 text-[#1c1410] font-semibold border border-[#1c1410]/15 focus:outline-none focus:border-[#c9793f] transition-all resize-none"></textarea>
         </div>
 
-        <!-- Field: phone -->
         <div class="space-y-1.5">
-          <label class="block text-[#1c1410]/70 font-semibold uppercase tracking-wider text-[0.7rem]">Nomor Telepon /
-            WhatsApp (Header Struk)</label>
+          <label class="block text-[#1c1410]/70 font-semibold uppercase tracking-wider text-[0.7rem]">Nomor Telepon / WhatsApp (Header Struk)</label>
           <input v-model="shop.phone" type="text" :maxlength="LIMITS.phone" placeholder="Contoh: 081234567890"
             class="w-full px-4 py-3 rounded-xl bg-white/60 text-[#1c1410] font-semibold border border-[#1c1410]/15 focus:outline-none focus:border-[#c9793f] transition-all" />
         </div>

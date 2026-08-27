@@ -1,4 +1,320 @@
 <!-- app/pages/owner/karyawan.vue -->
+<script setup>
+definePageMeta({
+  middleware: ["auth"],
+});
+
+const { user } = useAuth();
+
+useHead({
+  title: "Data Karyawan - Pemilik",
+});
+
+// Guard tambahan di level halaman: hanya PEMILIK yang boleh mengakses.
+watchEffect(() => {
+  if (user.value && user.value.role?.toUpperCase() !== "PEMILIK") {
+    navigateTo("/kasir/dashboard");
+  }
+});
+
+// --- State Filter & Pagination ---
+const currentPage = ref(1);
+const limit = ref(10);
+const searchQuery = ref("");
+const selectedStatus = ref("");
+const selectedPosition = ref("");
+
+const debouncedSearch = ref("");
+const debouncedPosition = ref("");
+let searchTimeout = null;
+watch(searchQuery, (newVal) => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    debouncedSearch.value = newVal;
+    currentPage.value = 1;
+  }, 400);
+});
+
+let positionTimeout = null;
+watch(selectedPosition, (newVal) => {
+  clearTimeout(positionTimeout);
+  positionTimeout = setTimeout(() => {
+    debouncedPosition.value = newVal;
+    currentPage.value = 1;
+  }, 400);
+});
+
+watch(selectedStatus, () => {
+  currentPage.value = 1;
+});
+
+// --- Fetch Data Karyawan ---
+const {
+  data: response,
+  pending,
+  error: fetchError,
+  refresh: refreshEmployees,
+} = await useFetch("/api/karyawan", {
+  query: computed(() => ({
+    page: currentPage.value,
+    limit: limit.value,
+    search: debouncedSearch.value,
+    status: selectedStatus.value,
+    position: debouncedPosition.value,
+  })),
+});
+
+const employees = computed(() => response.value?.data || []);
+const pagination = computed(
+  () =>
+    response.value?.pagination || {
+      currentPage: 1,
+      totalPages: 1,
+      totalItems: 0,
+    },
+);
+
+function formatDate(value) {
+  if (!value) return "-";
+  return new Date(value).toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function toDateInputValue(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
+}
+
+// --- Alert / Toast State ---
+const alertMessage = ref("");
+const alertType = ref("success");
+const showAlert = ref(false);
+
+function triggerAlert(msg, type = "success") {
+  alertMessage.value = msg;
+  alertType.value = type;
+  showAlert.value = true;
+  setTimeout(() => {
+    showAlert.value = false;
+  }, 3000);
+}
+
+// --- Form Tambah / Edit ---
+const isFormOpen = ref(false);
+const isSaving = ref(false);
+const editingEmployee = ref(null);
+const formError = ref("");
+const imagePreview = ref(null);
+const selectedFile = ref(null);
+const photoRemoved = ref(false);
+
+function defaultForm() {
+  return {
+    name: "",
+    email: "",
+    password: "",
+    phone: "",
+    address: "",
+    position: "",
+    status: "AKTIF",
+    birthDate: "",
+    joinDate: toDateInputValue(new Date()),
+  };
+}
+
+const form = reactive(defaultForm());
+
+function openForm(employee) {
+  formError.value = "";
+  selectedFile.value = null;
+  photoRemoved.value = false;
+
+  if (employee) {
+    editingEmployee.value = employee;
+    Object.assign(form, {
+      name: employee.name || "",
+      email: employee.email || "",
+      password: "",
+      phone: employee.phone || "",
+      address: employee.address || "",
+      position: employee.position || "",
+      status: employee.status || "AKTIF",
+      birthDate: toDateInputValue(employee.birthDate),
+      joinDate: toDateInputValue(employee.joinDate),
+    });
+    imagePreview.value = employee.photo || null;
+  } else {
+    editingEmployee.value = null;
+    Object.assign(form, defaultForm());
+    imagePreview.value = null;
+  }
+
+  isFormOpen.value = true;
+}
+
+function closeForm() {
+  isFormOpen.value = false;
+  editingEmployee.value = null;
+  formError.value = "";
+  selectedFile.value = null;
+  photoRemoved.value = false;
+}
+
+function handleFileChange(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  selectedFile.value = file;
+  photoRemoved.value = false;
+  imagePreview.value = URL.createObjectURL(file);
+}
+
+function clearPhoto() {
+  selectedFile.value = null;
+  imagePreview.value = null;
+  photoRemoved.value = true;
+  const fileInput = document.querySelector('input[type="file"]');
+  if (fileInput) fileInput.value = "";
+}
+
+async function handleSaveEmployee() {
+  formError.value = "";
+
+  if (!form.name || !form.email || !form.phone) {
+    formError.value = "Nama, email, dan nomor telepon wajib diisi.";
+    return;
+  }
+  if (!editingEmployee.value && (!form.password || form.password.length < 6)) {
+    formError.value = "Password wajib diisi minimal 6 karakter untuk karyawan baru.";
+    return;
+  }
+
+  isSaving.value = true;
+
+  try {
+    const formData = new FormData();
+    formData.append("name", form.name);
+    formData.append("email", form.email);
+    if (form.password) formData.append("password", form.password);
+    formData.append("phone", form.phone);
+    formData.append("address", form.address || "");
+    formData.append("position", form.position || "");
+    formData.append("status", form.status);
+    formData.append("birthDate", form.birthDate || "");
+    formData.append("joinDate", form.joinDate || "");
+
+    if (selectedFile.value) {
+      formData.append("photo", selectedFile.value);
+    } else if (photoRemoved.value) {
+      formData.append("removePhoto", "true");
+    }
+
+    const wasEditing = !!editingEmployee.value;
+
+    if (wasEditing) {
+      await $fetch(`/api/karyawan/${editingEmployee.value.id}`, {
+        method: "PUT",
+        body: formData,
+      });
+    } else {
+      await $fetch("/api/karyawan", {
+        method: "POST",
+        body: formData,
+      });
+    }
+
+    await refreshEmployees();
+    closeForm();
+    triggerAlert(
+      wasEditing
+        ? "Data karyawan berhasil diperbarui!"
+        : "Karyawan baru berhasil ditambahkan!",
+      "success",
+    );
+  } catch (err) {
+    formError.value =
+      err?.data?.statusMessage || err?.data?.message || "Gagal menyimpan data karyawan.";
+  } finally {
+    isSaving.value = false;
+  }
+}
+
+// --- Toggle Status Cepat (AKTIF <-> NONAKTIF) ---
+const togglingId = ref(null);
+
+async function toggleStatus(employee) {
+  if (togglingId.value) return;
+
+  const nextStatus = employee.status === "AKTIF" ? "NONAKTIF" : "AKTIF";
+  togglingId.value = employee.id;
+
+  try {
+    const formData = new FormData();
+    formData.append("status", nextStatus);
+
+    await $fetch(`/api/karyawan/${employee.id}`, {
+      method: "PUT",
+      body: formData,
+    });
+
+    await refreshEmployees();
+    triggerAlert(
+      `Status "${employee.name}" diubah menjadi ${nextStatus === "AKTIF" ? "Aktif" : "Nonaktif"}.`,
+      "success",
+    );
+  } catch (err) {
+    triggerAlert(
+      err?.data?.statusMessage || "Gagal mengubah status karyawan.",
+      "error",
+    );
+  } finally {
+    togglingId.value = null;
+  }
+}
+
+// --- Konfirmasi Hapus Permanen ---
+const employeeToDelete = ref(null);
+const isDeleting = ref(false);
+
+function confirmDelete(employee) {
+  if (isDeleting.value) return;
+  employeeToDelete.value = employee;
+}
+
+function cancelDelete() {
+  if (isDeleting.value) return;
+  employeeToDelete.value = null;
+}
+
+async function executeDelete() {
+  if (!employeeToDelete.value || isDeleting.value) return;
+
+  const employee = employeeToDelete.value;
+  isDeleting.value = true;
+
+  try {
+    await $fetch(`/api/karyawan/${employee.id}`, {
+      method: "DELETE",
+    });
+    employeeToDelete.value = null;
+    await refreshEmployees();
+    triggerAlert(`Karyawan "${employee.name}" berhasil dihapus!`, "success");
+  } catch (err) {
+    triggerAlert(
+      err?.data?.statusMessage || "Gagal menghapus karyawan.",
+      "error",
+    );
+  } finally {
+    isDeleting.value = false;
+  }
+}
+</script>
+
 <template>
   <div
     class="p-4 md:p-10 max-w-6xl mx-auto space-y-6 md:space-y-8 font-['Poppins',sans-serif] relative"
@@ -590,374 +906,37 @@
   </div>
 </template>
 
-<script setup>
-definePageMeta({
-  middleware: ["auth"],
-});
-
-const { user } = useAuth();
-
-useHead({
-  title: "Data Karyawan - Pemilik",
-});
-
-// Guard tambahan di level halaman: hanya PEMILIK yang boleh mengakses.
-// (Selain proteksi di sidebar dan di server/api/karyawan/* via requireOwner)
-watchEffect(() => {
-  if (user.value && user.value.role?.toUpperCase() !== "PEMILIK") {
-    navigateTo("/kasir/dashboard");
-  }
-});
-
-// --- State Filter & Pagination ---
-const currentPage = ref(1);
-const limit = ref(10);
-const searchQuery = ref("");
-const selectedStatus = ref("");
-const selectedPosition = ref("");
-
-const debouncedSearch = ref("");
-const debouncedPosition = ref("");
-let searchTimeout = null;
-watch(searchQuery, (newVal) => {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
-    debouncedSearch.value = newVal;
-    currentPage.value = 1;
-  }, 400);
-});
-
-let positionTimeout = null;
-watch(selectedPosition, (newVal) => {
-  clearTimeout(positionTimeout);
-  positionTimeout = setTimeout(() => {
-    debouncedPosition.value = newVal;
-    currentPage.value = 1;
-  }, 400);
-});
-
-watch(selectedStatus, () => {
-  currentPage.value = 1;
-});
-
-// --- Fetch Data Karyawan ---
-const {
-  data: response,
-  pending,
-  error: fetchError,
-  refresh: refreshEmployees,
-} = await useFetch("/api/karyawan", {
-  query: computed(() => ({
-    page: currentPage.value,
-    limit: limit.value,
-    search: debouncedSearch.value,
-    status: selectedStatus.value,
-    position: debouncedPosition.value,
-  })),
-});
-
-const employees = computed(() => response.value?.data || []);
-const pagination = computed(
-  () =>
-    response.value?.pagination || {
-      currentPage: 1,
-      totalPages: 1,
-      totalItems: 0,
-    },
-);
-
-function formatDate(value) {
-  if (!value) return "-";
-  return new Date(value).toLocaleDateString("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-function toDateInputValue(value) {
-  if (!value) return "";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toISOString().slice(0, 10);
-}
-
-// --- Alert / Toast State ---
-const alertMessage = ref("");
-const alertType = ref("success");
-const showAlert = ref(false);
-
-function triggerAlert(msg, type = "success") {
-  alertMessage.value = msg;
-  alertType.value = type;
-  showAlert.value = true;
-  setTimeout(() => {
-    showAlert.value = false;
-  }, 3000);
-}
-
-// --- Form Tambah / Edit ---
-const isFormOpen = ref(false);
-const isSaving = ref(false);
-const editingEmployee = ref(null);
-const formError = ref("");
-const imagePreview = ref(null);
-const selectedFile = ref(null);
-const photoRemoved = ref(false);
-
-function defaultForm() {
-  return {
-    name: "",
-    email: "",
-    password: "",
-    phone: "",
-    address: "",
-    position: "",
-    status: "AKTIF",
-    birthDate: "",
-    joinDate: toDateInputValue(new Date()),
-  };
-}
-
-const form = reactive(defaultForm());
-
-function openForm(employee) {
-  formError.value = "";
-  selectedFile.value = null;
-  photoRemoved.value = false;
-
-  if (employee) {
-    editingEmployee.value = employee;
-    Object.assign(form, {
-      name: employee.name || "",
-      email: employee.email || "",
-      password: "",
-      phone: employee.phone || "",
-      address: employee.address || "",
-      position: employee.position || "",
-      status: employee.status || "AKTIF",
-      birthDate: toDateInputValue(employee.birthDate),
-      joinDate: toDateInputValue(employee.joinDate),
-    });
-    imagePreview.value = employee.photo || null;
-  } else {
-    editingEmployee.value = null;
-    Object.assign(form, defaultForm());
-    imagePreview.value = null;
-  }
-
-  isFormOpen.value = true;
-}
-
-function closeForm() {
-  isFormOpen.value = false;
-  editingEmployee.value = null;
-  formError.value = "";
-  selectedFile.value = null;
-  photoRemoved.value = false;
-}
-
-function handleFileChange(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
-
-  selectedFile.value = file;
-  photoRemoved.value = false;
-  imagePreview.value = URL.createObjectURL(file);
-}
-
-function clearPhoto() {
-  selectedFile.value = null;
-  imagePreview.value = null;
-  photoRemoved.value = true;
-  const fileInput = document.querySelector('input[type="file"]');
-  if (fileInput) fileInput.value = "";
-}
-
-async function handleSaveEmployee() {
-  formError.value = "";
-
-  if (!form.name || !form.email || !form.phone) {
-    formError.value = "Nama, email, dan nomor telepon wajib diisi.";
-    return;
-  }
-  if (!editingEmployee.value && (!form.password || form.password.length < 6)) {
-    formError.value = "Password wajib diisi minimal 6 karakter untuk karyawan baru.";
-    return;
-  }
-
-  isSaving.value = true;
-
-  try {
-    const formData = new FormData();
-    formData.append("name", form.name);
-    formData.append("email", form.email);
-    if (form.password) formData.append("password", form.password);
-    formData.append("phone", form.phone);
-    formData.append("address", form.address || "");
-    formData.append("position", form.position || "");
-    formData.append("status", form.status);
-    formData.append("birthDate", form.birthDate || "");
-    formData.append("joinDate", form.joinDate || "");
-
-    if (selectedFile.value) {
-      formData.append("photo", selectedFile.value);
-    } else if (photoRemoved.value) {
-      formData.append("removePhoto", "true");
-    }
-
-    const wasEditing = !!editingEmployee.value;
-
-    if (wasEditing) {
-      await $fetch(`/api/karyawan/${editingEmployee.value.id}`, {
-        method: "PUT",
-        body: formData,
-      });
-    } else {
-      await $fetch("/api/karyawan", {
-        method: "POST",
-        body: formData,
-      });
-    }
-
-    await refreshEmployees();
-    closeForm();
-    triggerAlert(
-      wasEditing
-        ? "Data karyawan berhasil diperbarui!"
-        : "Karyawan baru berhasil ditambahkan!",
-      "success",
-    );
-  } catch (err) {
-    formError.value =
-      err?.data?.statusMessage || err?.data?.message || "Gagal menyimpan data karyawan.";
-  } finally {
-    isSaving.value = false;
-  }
-}
-
-// --- Toggle Status Cepat (AKTIF <-> NONAKTIF) ---
-const togglingId = ref(null);
-
-async function toggleStatus(employee) {
-  if (togglingId.value) return;
-
-  const nextStatus = employee.status === "AKTIF" ? "NONAKTIF" : "AKTIF";
-  togglingId.value = employee.id;
-
-  try {
-    const formData = new FormData();
-    formData.append("status", nextStatus);
-
-    await $fetch(`/api/karyawan/${employee.id}`, {
-      method: "PUT",
-      body: formData,
-    });
-
-    await refreshEmployees();
-    triggerAlert(
-      `Status "${employee.name}" diubah menjadi ${nextStatus === "AKTIF" ? "Aktif" : "Nonaktif"}.`,
-      "success",
-    );
-  } catch (err) {
-    triggerAlert(
-      err?.data?.statusMessage || "Gagal mengubah status karyawan.",
-      "error",
-    );
-  } finally {
-    togglingId.value = null;
-  }
-}
-
-// --- Konfirmasi Hapus Permanen ---
-const employeeToDelete = ref(null);
-const isDeleting = ref(false);
-
-function confirmDelete(employee) {
-  if (isDeleting.value) return;
-  employeeToDelete.value = employee;
-}
-
-function cancelDelete() {
-  if (isDeleting.value) return;
-  employeeToDelete.value = null;
-}
-
-async function executeDelete() {
-  if (!employeeToDelete.value || isDeleting.value) return;
-
-  const employee = employeeToDelete.value;
-  isDeleting.value = true;
-
-  try {
-    await $fetch(`/api/karyawan/${employee.id}`, {
-      method: "DELETE",
-    });
-    employeeToDelete.value = null;
-    await refreshEmployees();
-    triggerAlert(`Karyawan "${employee.name}" berhasil dihapus!`, "success");
-  } catch (err) {
-    triggerAlert(
-      err?.data?.statusMessage || "Gagal menghapus karyawan.",
-      "error",
-    );
-  } finally {
-    isDeleting.value = false;
-  }
-}
-</script>
-
 <style scoped>
-.label-xs {
-  font-size: 0.66rem;
-  font-weight: 500;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-}
-
 .ticket-card {
   background: #faf6ee;
-  border-radius: 6px;
-  border: 1.5px solid rgba(43, 27, 18, 0.12);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
-  position: relative;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(43, 27, 18, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
 }
 
 .btn-stamp {
   background: #2b1b12;
   color: #faf6ee;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  border-radius: 4px;
-  border: 1.5px solid #2b1b12;
-  cursor: pointer;
-  transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
+  border-radius: 0.5rem;
+  transition: all 0.15s ease;
 }
 
 .btn-stamp:hover:not(:disabled) {
   background: #b8763c;
-  border-color: #b8763c;
-  transform: rotate(-0.6deg) scale(1.01);
-}
-
-.btn-stamp:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
 }
 
 .btn-cancel:hover {
   background: #2b1b12;
 }
 
-/* TOAST TRANSITION */
 .slide-fade-enter-active,
 .slide-fade-leave-active {
-  transition: all 0.25s ease;
+  transition: all 0.3s ease;
 }
 
 .slide-fade-enter-from,
 .slide-fade-leave-to {
+  transform: translateY(-10px);
   opacity: 0;
-  transform: translateY(-6px);
 }
 </style>

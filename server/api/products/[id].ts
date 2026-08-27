@@ -21,7 +21,7 @@ function getMimeTypeFromBuffer(buffer: Buffer): string | null {
 }
 
 // Mencegah path traversal saat menghapus file fisik.
-async function safeDeleteFile(relativePath: string) {
+async function safeDeleteFile(relativePath: string | null) {
   if (!relativePath || typeof relativePath !== "string") return;
 
   const filename = path.basename(relativePath);
@@ -29,9 +29,7 @@ async function safeDeleteFile(relativePath: string) {
 
   if (!fullPath.startsWith(UPLOAD_DIR)) return;
 
-  await fs.unlink(fullPath).catch((err) => {
-    console.error("Gagal menghapus file fisik:", err);
-  });
+  await fs.unlink(fullPath).catch(() => { });
 }
 
 export default defineEventHandler(async (event) => {
@@ -70,6 +68,7 @@ export default defineEventHandler(async (event) => {
     let stock = existingProduct.stock;
     let categoryId = existingProduct.categoryId;
     let isActive = existingProduct.isActive;
+    let removeImage = false;
     let uploadedFile: { filename: string; data: Buffer } | null = null;
 
     for (const file of files) {
@@ -131,6 +130,7 @@ export default defineEventHandler(async (event) => {
       }
 
       if (fieldName === "isActive") isActive = value === "true";
+      if (fieldName === "removePhoto" || fieldName === "removeImage") removeImage = value === "true";
 
       if (fieldName === "image" && file.filename && file.data.length > 0) {
         uploadedFile = { filename: file.filename, data: file.data };
@@ -148,7 +148,7 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    let newImagePath: string | undefined = undefined;
+    let finalImagePath: string | null | undefined = undefined;
     let savedFilePath: string | null = null;
 
     if (uploadedFile) {
@@ -172,7 +172,9 @@ export default defineEventHandler(async (event) => {
 
       await fs.writeFile(fullPath, uploadedFile.data);
       savedFilePath = fullPath;
-      newImagePath = `/uploads/${randomFileName}`;
+      finalImagePath = `/uploads/${randomFileName}`;
+    } else if (removeImage) {
+      finalImagePath = null;
     }
 
     try {
@@ -187,11 +189,12 @@ export default defineEventHandler(async (event) => {
           stock,
           categoryId,
           isActive,
-          ...(newImagePath !== undefined && { image: newImagePath }),
+          ...(finalImagePath !== undefined && { image: finalImagePath }),
         },
       });
 
-      if (newImagePath && existingProduct.image) {
+      // Hapus file lama jika ada upload baru ATAU jika user sengaja menghapus gambar
+      if ((finalImagePath !== undefined) && existingProduct.image) {
         await safeDeleteFile(existingProduct.image);
       }
 
@@ -206,7 +209,7 @@ export default defineEventHandler(async (event) => {
         },
       };
     } catch (error: any) {
-      if (savedFilePath) await fs.unlink(savedFilePath).catch(() => {});
+      if (savedFilePath) await fs.unlink(savedFilePath).catch(() => { });
 
       const errorCode = String(error?.code || "");
       if (errorCode === "P2002") {
@@ -221,6 +224,9 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // ==========================================
+  // DELETE PRODUK (DELETE) — HANYA PEMILIK
+  // ==========================================
   if (method === "DELETE") {
     try {
       const existingProduct = await db.product.findUnique({
@@ -241,66 +247,17 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 404, message: "Produk tidak ditemukan." });
       }
 
-      if (existingProduct.isActive === false) {
-        const deletedProduct = await db.product.delete({ where: { id: productId } });
-
-        if (deletedProduct.image) {
-          await safeDeleteFile(deletedProduct.image);
-        }
-
-        return {
-          success: true,
-          message: "Produk non-aktif berhasil dihapus permanen beserta gambarnya.",
-          data: deletedProduct,
-        };
-      }
-
-      // 3. Jika produk masih aktif dan sudah terikat riwayat transaksi RIIL -> Soft Delete (isActive: false)
       const hasTransactionHistory = (existingProduct._count?.orderItems ?? 0) > 0;
 
+      // 1. Jika terikat transaksi riil -> TIDAK BISA di-hard delete, ubah ke Non-Aktif (Soft Delete)
       if (hasTransactionHistory) {
-        const softDeletedProduct = await db.product.update({
-          where: { id: productId },
-          data: { isActive: false },
-        });
+        if (!existingProduct.isActive) {
+          throw createError({
+            statusCode: 400,
+            message: "Produk tidak dapat dihapus permanen karena memiliki riwayat transaksi toko.",
+          });
+        }
 
-        return {
-          success: true,
-          message: "Produk memiliki riwayat transaksi. Status diubah menjadi Non-Aktif. Klik hapus sekali lagi untuk menghapus permanen.",
-          data: {
-            ...softDeletedProduct,
-            price: Number(softDeletedProduct.price),
-            discount: Number(softDeletedProduct.discount),
-            costPrice: softDeletedProduct.costPrice ? Number(softDeletedProduct.costPrice) : null,
-          },
-        };
-      }
-
-      // 4. Jika masih aktif dan belum ada riwayat transaksi -> Hard Delete permanen langsung
-      const deletedProduct = await db.product.delete({ where: { id: productId } });
-
-      if (deletedProduct.image) {
-        await safeDeleteFile(deletedProduct.image);
-      }
-
-      return {
-        success: true,
-        message: "Produk berhasil dihapus secara permanen.",
-        data: deletedProduct,
-      };
-    } catch (error: any) {
-      if (error.statusCode) throw error;
-
-      // Fallback pencegahan error Foreign Key Constraint (P2003 Prisma / 23001 Postgres)
-      const errorCode = String(error?.code || "");
-      const errorMessage = String(error?.message || "");
-
-      if (
-        errorCode === "P2003" ||
-        errorCode === "23001" ||
-        errorMessage.includes("foreign key constraint") ||
-        errorMessage.includes("RESTRICT")
-      ) {
         const softDeletedProduct = await db.product.update({
           where: { id: productId },
           data: { isActive: false },
@@ -317,6 +274,21 @@ export default defineEventHandler(async (event) => {
           },
         };
       }
+
+      // 2. Jika tidak ada transaksi -> Hard Delete permanen langsung
+      const deletedProduct = await db.product.delete({ where: { id: productId } });
+
+      if (deletedProduct.image) {
+        await safeDeleteFile(deletedProduct.image);
+      }
+
+      return {
+        success: true,
+        message: "Produk berhasil dihapus secara permanen.",
+        data: deletedProduct,
+      };
+    } catch (error: any) {
+      if (error.statusCode) throw error;
 
       console.error("Gagal menghapus produk:", error);
       throw createError({ statusCode: 500, message: "Gagal menghapus produk." });

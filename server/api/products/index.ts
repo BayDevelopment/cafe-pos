@@ -14,18 +14,22 @@ const MAX_NAME_LEN = 200;
 const MAX_SKU_LEN = 50;
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
 
+// Pengecekan Magic Byte Asli (PNG, JPEG, WebP)
 function getMimeTypeFromBuffer(buffer: Buffer): string | null {
-  if (buffer.length < 4) return null;
-  const hex = buffer.toString("hex", 0, 4).toUpperCase();
-  if (hex === "89504E47") return "image/png";
+  if (buffer.length < 12) return null;
+  const hex = buffer.toString("hex", 0, 12).toUpperCase();
+  if (hex.startsWith("89504E47")) return "image/png";
   if (hex.startsWith("FFD8FF")) return "image/jpeg";
+  if (hex.startsWith("52494646") && hex.substring(16, 24) === "57454250") return "image/webp";
   return null;
 }
 
 export default defineEventHandler(async (event) => {
   const method = getMethod(event);
 
-  // 1. GET Products (Kasir & Pemilik, wajib login)
+  // ==========================================
+  // 1. GET Products (Kasir & Pemilik)
+  // ==========================================
   if (method === "GET") {
     await requireUser(event);
 
@@ -71,7 +75,7 @@ export default defineEventHandler(async (event) => {
         db.product.count({ where }),
       ]);
 
-      // Konversi Prisma Decimal ke Number agar aman terbaca di Frontend
+      // Konversi Prisma Decimal ke Number agar aman di Frontend
       const sanitizedProducts = products.map((p) => ({
         ...p,
         price: Number(p.price),
@@ -96,7 +100,9 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // ==========================================
   // 2. POST Product — HANYA PEMILIK
+  // ==========================================
   if (method === "POST") {
     await requireOwner(event);
 
@@ -185,15 +191,18 @@ export default defineEventHandler(async (event) => {
       }
 
       const detectedMime = getMimeTypeFromBuffer(uploadedFile.data);
-      const allowedMimes = ["image/png", "image/jpeg"];
+      const allowedMimes = ["image/png", "image/jpeg", "image/webp"];
       if (!detectedMime || !allowedMimes.includes(detectedMime)) {
         throw createError({
           statusCode: 400,
-          message: "File yang diunggah bukan gambar valid (Hanya PNG & JPG/JPEG asli yang diizinkan).",
+          message: "File yang diunggah bukan gambar valid (Hanya PNG, JPG/JPEG, & WEBP yang diizinkan).",
         });
       }
 
-      const safeExtension = detectedMime === "image/png" ? ".png" : ".jpg";
+      let safeExtension = ".jpg";
+      if (detectedMime === "image/png") safeExtension = ".png";
+      if (detectedMime === "image/webp") safeExtension = ".webp";
+
       const randomFileName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}${safeExtension}`;
 
       await fs.mkdir(UPLOAD_DIR, { recursive: true });
