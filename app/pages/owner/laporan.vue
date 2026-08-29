@@ -467,6 +467,10 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 
+definePageMeta({
+  middleware: ["auth"],
+});
+
 useHead({
   title: 'Laporan Keuangn dan Omset - POS Owner'
 })

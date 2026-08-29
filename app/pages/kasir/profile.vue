@@ -383,7 +383,6 @@
 </template>
 
 <script setup lang="ts">
-// 👉 PERUBAHAN DI SINI: Menambahkan onBeforeUnmount untuk membersihkan interval
 import { ref, reactive, computed, onMounted, onBeforeUnmount } from "vue";
 
 definePageMeta({

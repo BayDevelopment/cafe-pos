@@ -1,5 +1,9 @@
 <!-- app/pages/kasir/riwayat.vue -->
 <script setup>
+definePageMeta({
+  middleware: ["auth"],
+});
+
 import { ref, computed, watch, onMounted, onUnmounted, onActivated, onDeactivated, reactive } from 'vue'
 
 useHead({

@@ -1,6 +1,10 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, onActivated, onDeactivated, reactive } from 'vue'
 
+definePageMeta({
+  middleware: ["auth"],
+});
+
 useHead({
   title: 'Riwayat Penjualan - POS'
 })

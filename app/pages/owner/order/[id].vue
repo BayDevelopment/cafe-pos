@@ -180,6 +180,10 @@
 </template>
 
 <script setup>
+definePageMeta({
+  middleware: ["auth"],
+});
+
 useHead({
   title: 'Detail Struk (Pemilik) - POS',
   link: [

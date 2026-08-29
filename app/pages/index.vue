@@ -67,10 +67,10 @@
             </div>
 
             <!-- LAYOUT: KATALOG (KIRI) + KERANJANG (KANAN) -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 items-start">
 
                 <!-- KATALOG PRODUK -->
-                <div class="lg:col-span-2 space-y-8">
+                 <div class="xl:col-span-2 space-y-8">
 
                     <div v-if="pending" class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         <div v-for="n in 6" :key="n" class="ticket-card p-5 skeleton-card" aria-hidden="true">
@@ -97,7 +97,7 @@
                                 <span class="mono label-xs text-[#8A7A68]">{{ group.items.length }} item</span>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                          <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
                                 <div v-for="product in group.items" :key="product.id"
                                     class="ticket-card overflow-hidden flex flex-col relative"
                                     :class="{ 'opacity-60 grayscale-[0.4]': product.stock <= 0 }">
@@ -163,7 +163,7 @@
                 </div>
 
                 <!-- SIDEBAR KERANJANG / STATUS PESANAN -->
-                <div class="lg:col-span-1 lg:sticky lg:top-24">
+               <div class="xl:col-span-1 xl:sticky xl:top-24">
                     <div class="ticket-card p-4 sm:p-5 md:p-6 space-y-5">
 
                         <!-- MODE: SEDANG BELANJA -->

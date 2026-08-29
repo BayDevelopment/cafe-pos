@@ -253,6 +253,9 @@
 </template>
 
 <script setup>
+definePageMeta({
+  middleware: ["auth"],
+});
 useHead({ title: "Pesanan Masuk - Owner Dashboard" });
 
 const token = useCookie("auth_token");

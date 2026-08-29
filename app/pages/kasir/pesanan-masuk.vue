@@ -251,6 +251,10 @@
 </template>
 
 <script setup>
+definePageMeta({
+  middleware: ["auth"],
+});
+
 useHead({ title: "Pesanan Masuk - POS Kasir" });
 
 const token = useCookie("auth_token");

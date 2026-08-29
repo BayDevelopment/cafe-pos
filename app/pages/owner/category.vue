@@ -267,6 +267,10 @@ useHead({
   title: 'Kategori Produk - POS Owner'
 })
 
+definePageMeta({
+  middleware: ["auth"],
+});
+
 const { user } = useAuth()
 
 // Cek apakah role user yang sedang login adalah PEMILIK

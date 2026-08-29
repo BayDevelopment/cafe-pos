@@ -1,6 +1,6 @@
 <script setup>
 definePageMeta({
-  middleware: ['owner-only']
+  middleware: ['owner-only','auth']
 })
 
 useHead({

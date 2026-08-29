@@ -224,6 +224,10 @@
 </template>
 
 <script setup>
+definePageMeta({
+  middleware: ["auth"],
+});
+
 useHead({
   title: "Struk Transaksi - POS",
   link: [

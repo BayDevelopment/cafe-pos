@@ -579,6 +579,10 @@
 </template>
 
 <script setup>
+definePageMeta({
+  middleware: ["auth"],
+});
+
 const { user } = useAuth();
 
 useHead({
