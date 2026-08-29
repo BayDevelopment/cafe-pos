@@ -49,8 +49,8 @@ function contentTypeFor(ext: string): string {
 function toSnakeCaseResponse(settings: {
   shopName: string;
   description: string | null;
-  address: string;
-  phone: string;
+  address: string | null;
+  phone: string | null;
   logoUrl: string | null;
 }) {
   return {
@@ -90,7 +90,7 @@ export default defineEventHandler(async (event) => {
 
   if (method === "POST" || method === "PUT") {
     const files = await readMultipartFormData(event);
-    
+
     // Inisialisasi Netlify Blobs dengan kredensial Environment Variables
     const logoStore = getStore({
       name: LOGO_STORE_NAME,
@@ -132,7 +132,12 @@ export default defineEventHandler(async (event) => {
           // Key acak & unik — dipakai sebagai "nama file" di dalam Blob store.
           const key = `logo_${Date.now()}_${crypto.randomBytes(8).toString("hex")}${ext}`;
 
-          await logoStore.set(key, file.data, {
+          const arrayBuffer = file.data.buffer.slice(
+            file.data.byteOffset,
+            file.data.byteOffset + file.data.byteLength
+          ) as ArrayBuffer;
+
+          await logoStore.set(key, arrayBuffer, {
             metadata: { contentType: contentTypeFor(ext) },
           });
 
@@ -177,8 +182,9 @@ export default defineEventHandler(async (event) => {
       }
 
       // Cek apakah nomor telepon sudah digunakan oleh akun karyawan/user
-      const existingUserPhone = await db.user.findFirst({
+      const existingUserPhone = await db.employee.findFirst({
         where: { phone: phone },
+        select: { id: true },
       });
 
       if (existingUserPhone) {

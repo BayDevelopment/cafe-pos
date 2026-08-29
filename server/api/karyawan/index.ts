@@ -47,13 +47,31 @@ async function generateEmployeeCode(): Promise<string> {
   let nextNumber = 1;
   if (last?.employeeCode) {
     const match = last.employeeCode.match(/(\d+)$/);
-    if (match) {
+    if (match && match[1]) {
       nextNumber = parseInt(match[1], 10) + 1;
     }
   }
 
   return `KRY-${String(nextNumber).padStart(4, "0")}`;
 }
+
+async function ensurePhoneUnique(phone: string, excludeEmployeeId?: string) {
+  const existing = await db.employee.findFirst({
+    where: {
+      phone,
+      ...(excludeEmployeeId ? { id: { not: excludeEmployeeId } } : {}),
+    },
+    select: { id: true },
+  });
+  if (existing) {
+    throw createError({
+      statusCode: 409,
+      message: "Nomor telepon sudah digunakan oleh karyawan lain.",
+    });
+  }
+}
+
+
 
 function sanitizeEmployee(employee: any) {
   const { user, ...rest } = employee;
@@ -198,6 +216,18 @@ export default defineEventHandler(async (event) => {
     if (phone.length > MAX_PHONE_LEN) {
       throw createError({ statusCode: 400, message: `Nomor telepon tidak boleh melebihi ${MAX_PHONE_LEN} karakter.` });
     }
+    await ensurePhoneUnique(phone);
+
+    const shopSettings = await db.shopSettings.findUnique({
+      where: { id: "GLOBAL_SETTINGS" },
+      select: { phone: true },
+    });
+    if (shopSettings?.phone && shopSettings.phone === phone) {
+      throw createError({
+        statusCode: 409,
+        message: "Nomor telepon ini sudah digunakan sebagai nomor telepon toko.",
+      });
+    }
 
     if (address.length > MAX_ADDRESS_LEN) {
       throw createError({ statusCode: 400, message: `Alamat tidak boleh melebihi ${MAX_ADDRESS_LEN} karakter.` });
@@ -257,7 +287,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const cleanupUploadedFile = async () => {
-      if (savedFilePath) await fs.unlink(savedFilePath).catch(() => {});
+      if (savedFilePath) await fs.unlink(savedFilePath).catch(() => { });
     };
 
     try {
@@ -306,11 +336,10 @@ export default defineEventHandler(async (event) => {
 
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === "P2002") {
-          const target = Array.isArray(error.meta?.target) ? error.meta?.target.join(", ") : error.meta?.target;
-          throw createError({
-            statusCode: 409,
-            message: `Data sudah terdaftar (${target || "email/kode karyawan"}).`,
-          });
+          const target = Array.isArray(error.meta?.target)
+            ? error.meta?.target.join(", ")
+            : String(error.meta?.target ?? "");
+          const message = target.includes("phone")
         }
       }
 

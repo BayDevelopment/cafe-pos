@@ -2,8 +2,9 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
+  previewFeatures = ["queryCompiler", "driverAdapters"]
 }
 
 datasource db {
@@ -95,7 +96,7 @@ model Employee {
   user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   employeeCode String         @unique // NIP internal, mis. "KRY-0001"
-  phone        String
+  phone        String         @unique
   address      String?
   birthDate    DateTime?
   photo        String?
