@@ -17,7 +17,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 405, statusMessage: "Method not allowed" });
   }
 
-  rateLimitByIp(event, "reset-password", { maxAttempts: 5, windowMs: 60 * 1000 });
+  await rateLimitByIp(event, "reset-password", { maxAttempts: 5, windowMs: 60 * 1000 });
 
   let body: any;
   try {

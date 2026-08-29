@@ -3,7 +3,7 @@ import { defineEventHandler, getMethod, getRouterParam, getQuery, readMultipartF
 import fs from "node:fs/promises";
 import path from "node:path";
 import crypto from "node:crypto";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import { Prisma } from "../../../generated/prisma/client";
 import { db } from "../../utils/db";
 import { requireOwner } from "../../utils/auth";

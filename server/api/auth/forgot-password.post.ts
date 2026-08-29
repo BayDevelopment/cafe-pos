@@ -77,7 +77,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: "Email tidak valid." });
   }
 
-  rateLimitByIpAndIdentifier(event, email, "forgot-password", { maxAttempts: 5, windowMs: 60 * 1000 });
+  await rateLimitByIpAndIdentifier(event, email, "forgot-password", { maxAttempts: 5, windowMs: 60 * 1000 });
 
   try {
     const user = await db.user.findUnique({ where: { email } });
